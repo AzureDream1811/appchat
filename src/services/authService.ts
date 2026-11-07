@@ -1,12 +1,16 @@
 import type {
   LoginRequestDto,
   LoginResponseDataDto,
+  LogoutResponseDto,
   ReLoginRequestDto,
   ReLoginResponseDataDto,
   RegisterRequestDto,
   RegisterResponseDataDto,
 } from "../api/events/authApi";
-import { sendSocketMessage } from "../api/websocketClient";
+import {
+  disconnectSocket,
+  sendSocketMessage,
+} from "../api/websocketClient";
 
 export async function register(
   username: string,
@@ -74,4 +78,18 @@ export async function relogin(
   }
 
   return response;
+}
+
+export async function logout(): Promise<LogoutResponseDto> {
+  try {
+    const response = await sendSocketMessage<LogoutResponseDto>("LOGOUT");
+
+    if (typeof response !== "string") {
+      throw new Error("Invalid LOGOUT response.");
+    }
+
+    return response;
+  } finally {
+    disconnectSocket();
+  }
 }
