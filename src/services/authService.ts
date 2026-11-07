@@ -4,7 +4,7 @@ import type {
   RegisterRequestDto,
   RegisterResponseDataDto,
 } from "../api/events/authApi";
-import { websocketClient } from "../api/websocketClient";
+import { sendSocketMessage } from "../api/websocketClient";
 
 export async function register(
   username: string,
@@ -14,10 +14,10 @@ export async function register(
     user: username,
     pass: password,
   };
-  const response = await websocketClient.send<
-    RegisterRequestDto,
-    RegisterResponseDataDto
-  >("REGISTER", request);
+  const response = await sendSocketMessage<RegisterResponseDataDto>(
+    "REGISTER",
+    request,
+  );
 
   if (typeof response !== "string") {
     throw new Error("Invalid REGISTER response.");
@@ -34,10 +34,10 @@ export async function login(
     user: username,
     pass: password,
   };
-  const response = await websocketClient.send<
-    LoginRequestDto,
-    LoginResponseDataDto
-  >("LOGIN", request);
+  const response = await sendSocketMessage<LoginResponseDataDto>(
+    "LOGIN",
+    request,
+  );
 
   if (
     typeof response !== "object" ||

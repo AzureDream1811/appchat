@@ -1,187 +1,95 @@
-import type {
-  WebSocketRequest,
-  WebSocketResponse,
-} from "./websocketTypes";
+import type { WebSocketRequest } from "./websocketTypes";
 
-const WEBSOCKET_URL =
+const SOCKET_URL =
   import.meta.env.VITE_WEBSOCKET_URL ?? "wss://chat.longapp.io.vn/chat/chat";
-const REQUEST_TIMEOUT_MS = 10_000;
+const REQUEST_TIMEOUT = 10_000;
 
-type PendingRequest = {
-  resolve: (data: unknown) => void;
-  reject: (error: Error) => void;
-  timeoutId: number;
-};
+let socket: WebSocket | null = null;
 
-class WebSocketClient {
-  private socket: WebSocket | null = null;
-  private connection: Promise<void> | null = null;
-  private pending = new Map<string, PendingRequest[]>();
-
-  connect(): Promise<void> {
-    if (this.socket?.readyState === WebSocket.OPEN) {
-      return Promise.resolve();
-    }
-
-    if (this.connection) {
-      return this.connection;
-    }
-
-    this.connection = new Promise((resolve, reject) => {
-      const socket = new WebSocket(WEBSOCKET_URL);
-      this.socket = socket;
-
-      socket.onopen = () => {
-        this.connection = null;
-        resolve();
-      };
-
-      socket.onmessage = (event) => {
-        this.handleMessage(event.data);
-      };
-
-      socket.onerror = () => {
-        const error = new Error("Unable to connect to the chat server.");
-        this.rejectPending(error);
-        this.connection = null;
-        reject(error);
-      };
-
-      socket.onclose = () => {
-        this.socket = null;
-        this.connection = null;
-        this.rejectPending(new Error("The chat connection was closed."));
-      };
-    });
-
-    return this.connection;
+export function connectSocket(): Promise<void> {
+  if (socket?.readyState === WebSocket.OPEN) {
+    return Promise.resolve();
   }
 
-  disconnect(): void {
-    this.rejectPending(new Error("The chat connection was closed."));
-    this.socket?.close();
-    this.socket = null;
-    this.connection = null;
-  }
+  return new Promise((resolve, reject) => {
+    socket = new WebSocket(SOCKET_URL);
 
-  async send<TRequest, TResponse>(
-    event: string,
-    data: TRequest,
-  ): Promise<TResponse> {
-    await this.connect();
-
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-      throw new Error("The chat connection is not open.");
-    }
-
-    return new Promise<TResponse>((resolve, reject) => {
-      const timeoutId = window.setTimeout(() => {
-        this.removePending(event, request);
-        reject(new Error(`${event} request timed out.`));
-      }, REQUEST_TIMEOUT_MS);
-
-      const request: PendingRequest = {
-        resolve: (responseData) => resolve(responseData as TResponse),
-        reject,
-        timeoutId,
-      };
-
-      const requests = this.pending.get(event) ?? [];
-      requests.push(request);
-      this.pending.set(event, requests);
-
-      const payload: WebSocketRequest<TRequest> = {
-        action: "onchat",
-        data: { event, data },
-      };
-
-      try {
-        this.socket?.send(JSON.stringify(payload));
-      } catch (error) {
-        this.removePending(event, request);
-        reject(
-          error instanceof Error
-            ? error
-            : new Error("Unable to send the WebSocket request."),
-        );
-      }
-    });
-  }
-
-  private handleMessage(rawData: unknown): void {
-    let response: unknown;
-
-    try {
-      response = JSON.parse(String(rawData));
-    } catch {
-      this.rejectPending(new Error("The server returned invalid JSON."));
-      return;
-    }
-
-    if (!this.isResponse(response)) {
-      return;
-    }
-
-    const requests = this.pending.get(response.event);
-    const request = requests?.shift();
-
-    if (!request) {
-      return;
-    }
-
-    if (requests?.length === 0) {
-      this.pending.delete(response.event);
-    }
-
-    window.clearTimeout(request.timeoutId);
-
-    if (response.status === "error") {
-      request.reject(new Error(response.mes));
-    } else {
-      request.resolve(response.data);
-    }
-  }
-
-  private isResponse(value: unknown): value is WebSocketResponse<unknown> {
-    if (typeof value !== "object" || value === null) {
-      return false;
-    }
-
-    const response = value as Record<string, unknown>;
-
-    return (
-      (response.status === "success" || response.status === "error") &&
-      typeof response.event === "string"
-    );
-  }
-
-  private removePending(event: string, request: PendingRequest): void {
-    const requests = this.pending.get(event);
-
-    if (!requests) {
-      return;
-    }
-
-    const index = requests.indexOf(request);
-    if (index >= 0) {
-      requests.splice(index, 1);
-    }
-
-    if (requests.length === 0) {
-      this.pending.delete(event);
-    }
-  }
-
-  private rejectPending(error: Error): void {
-    for (const requests of this.pending.values()) {
-      for (const request of requests) {
-        window.clearTimeout(request.timeoutId);
-        request.reject(error);
-      }
-    }
-
-    this.pending.clear();
-  }
+    socket.onopen = () => resolve();
+    socket.onerror = () => reject(new Error("Cannot connect to chat server."));
+    socket.onclose = () => {
+      socket = null;
+    };
+  });
 }
 
-export const websocketClient = new WebSocketClient();
+export function disconnectSocket(): void {
+  socket?.close();
+  socket = null;
+}
+
+export async function sendSocketMessage<T>(
+  event: string,
+  data?: unknown,
+): Promise<T> {
+  await connectSocket();
+
+  if (!socket || socket.readyState !== WebSocket.OPEN) {
+    throw new Error("WebSocket is not connected.");
+  }
+
+  const connectedSocket = socket;
+
+  const request: WebSocketRequest<unknown> = {
+    action: "onchat",
+    data: {
+      event,
+      data,
+    },
+  };
+
+  socket.send(JSON.stringify(request));
+
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      socket?.removeEventListener("message", handleMessage);
+      reject(new Error(`${event} request timed out.`));
+    }, REQUEST_TIMEOUT);
+
+    function handleMessage(message: MessageEvent) {
+      let response: unknown;
+
+      try {
+        response = JSON.parse(String(message.data));
+      } catch {
+        return;
+      }
+
+      if (
+        typeof response !== "object" ||
+        response === null ||
+        !("event" in response) ||
+        response.event !== event
+      ) {
+        return;
+      }
+
+      window.clearTimeout(timeoutId);
+      socket?.removeEventListener("message", handleMessage);
+
+      if ("status" in response && response.status === "error") {
+        const message =
+          "mes" in response && typeof response.mes === "string"
+            ? response.mes
+            : "Request failed.";
+        reject(new Error(message));
+        return;
+      }
+
+      if ("data" in response) {
+        resolve(response.data as T);
+      }
+    }
+
+    connectedSocket.addEventListener("message", handleMessage);
+  });
+}
