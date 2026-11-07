@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, type SyntheticEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../hooks/redux";
 import { clearAuthError, register } from "../../state/authSlice";
@@ -14,7 +14,7 @@ export default function Register() {
 
   const isSubmitting = status === "connecting";
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError(null);
     dispatch(clearAuthError());
