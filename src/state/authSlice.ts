@@ -10,6 +10,7 @@ import {
 } from "../mappers/authMapper";
 import {
   login as loginUser,
+  logout as logoutUser,
   relogin as reloginUser,
   register as registerUser,
 } from "../services/authService";
@@ -91,6 +92,20 @@ export const relogin = createAsyncThunk<
   }
 });
 
+export const logout = createAsyncThunk<
+  string,
+  void,
+  { rejectValue: string }
+>("auth/logout", async (_, { rejectWithValue }) => {
+  try {
+    return await logoutUser();
+  } catch (error) {
+    return rejectWithValue(
+      error instanceof Error ? error.message : "Logout failed.",
+    );
+  }
+});
+
 const authSlice = createSlice({
   name: "auth",
   initialState,
@@ -109,7 +124,7 @@ const authSlice = createSlice({
       state.session = null;
       state.error = action.payload;
     },
-    logout(state) {
+    clearSession(state) {
       state.status = "idle";
       state.session = null;
       state.error = null;
@@ -161,6 +176,19 @@ const authSlice = createSlice({
       .addCase(relogin.rejected, (state, action) => {
         state.status = "error";
         state.error = action.payload ?? "Reconnect failed.";
+      })
+      .addCase(logout.pending, (state) => {
+        state.status = "connecting";
+        state.error = null;
+      })
+      .addCase(logout.fulfilled, (state) => {
+        state.status = "idle";
+        state.session = null;
+        state.error = null;
+      })
+      .addCase(logout.rejected, (state, action) => {
+        state.status = "error";
+        state.error = action.payload ?? "Logout failed.";
       });
   },
 });
@@ -169,7 +197,7 @@ export const {
   loginStarted,
   loginSucceeded,
   loginFailed,
-  logout,
+  clearSession,
   clearAuthError,
 } = authSlice.actions;
 
