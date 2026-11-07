@@ -7,10 +7,13 @@ const REQUEST_TIMEOUT = 10_000;
 let socket: WebSocket | null = null;
 
 export function connectSocket(): Promise<void> {
+
+  // Check if the socket is already connected
   if (socket?.readyState === WebSocket.OPEN) {
     return Promise.resolve();
   }
 
+  // If the socket is not connected, create a new WebSocket connection
   return new Promise((resolve, reject) => {
     socket = new WebSocket(SOCKET_URL);
 
@@ -27,79 +30,57 @@ export function disconnectSocket(): void {
   socket = null;
 }
 
+
 export async function sendSocketMessage<T>(
   event: string,
   data?: unknown,
 ): Promise<T> {
+  // 1. Connect to WebSocket
   await connectSocket();
 
   if (!socket || socket.readyState !== WebSocket.OPEN) {
     throw new Error("WebSocket is not connected.");
   }
 
-  const connectedSocket = socket;
-
   const request: WebSocketRequest<unknown> = {
     action: "onchat",
-    data: {
-      event,
-      data,
-    },
+    data: { event, data },
   };
 
+  const connectedSocket = socket;
+
+  // 2. Send request and wait for response
   return new Promise<T>((resolve, reject) => {
+    // Timeout after 10 seconds
     const timeoutId = window.setTimeout(() => {
       connectedSocket.removeEventListener("message", handleMessage);
-      reject(new Error(`${event} request timed out.`));
+      reject(new Error("Request timed out."));
     }, REQUEST_TIMEOUT);
 
+    // 3. Listen for server response
     function handleMessage(message: MessageEvent) {
-      let response: unknown;
+      const response = JSON.parse(String(message.data));
 
-      try {
-        response = JSON.parse(String(message.data));
-      } catch {
-        return;
-      }
-
-      if (
-        typeof response !== "object" ||
-        response === null ||
-        !("event" in response) ||
-        response.event !== event
-      ) {
-        return;
-      }
+      // Only handle the matching event
+      if (response.event !== event) return;
 
       window.clearTimeout(timeoutId);
       connectedSocket.removeEventListener("message", handleMessage);
 
-      if ("status" in response && response.status === "error") {
-        const message =
-          "mes" in response && typeof response.mes === "string"
-            ? response.mes
-            : "Request failed.";
-        reject(new Error(message));
+      // Handle error response
+      if (response.status === "error") {
+        reject(new Error(response.mes || "Request failed."));
         return;
       }
 
-      if ("data" in response) {
-        resolve(response.data as T);
-      }
+      // Return response data
+      resolve(response.data as T);
     }
 
     connectedSocket.addEventListener("message", handleMessage);
 
-    try {
-      connectedSocket.send(JSON.stringify(request));
-    } catch (error) {
-      window.clearTimeout(timeoutId);
-      connectedSocket.removeEventListener("message", handleMessage);
-      reject(
-        error instanceof Error
-          ? error
-          : new Error("Unable to send the WebSocket request."),
-      );
-    }
+    // 4. Send JSON request
+    connectedSocket.send(JSON.stringify(request));
   });
 }
+
