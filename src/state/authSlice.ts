@@ -4,9 +4,13 @@ import {
   type PayloadAction,
 } from "@reduxjs/toolkit";
 import type { AuthSession } from "../domain/auth/AuthSession";
-import { mapLoginResponseToSession } from "../mappers/authMapper";
+import {
+  mapLoginResponseToSession,
+  mapReLoginResponseToSession,
+} from "../mappers/authMapper";
 import {
   login as loginUser,
+  relogin as reloginUser,
   register as registerUser,
 } from "../services/authService";
 
@@ -43,6 +47,11 @@ export const register = createAsyncThunk<
   }
 });
 
+// Define the login async thunk
+// Three createAsyncThunk parameters:
+//  1. The return type of the payload creator (AuthSession)
+//  2. The first argument to the payload creator ({ username: string; password: string })
+//  3. An object with a rejectValue property (string)
 export const login = createAsyncThunk<
   AuthSession,
   { username: string; password: string },
@@ -54,6 +63,30 @@ export const login = createAsyncThunk<
   } catch (error) {
     return rejectWithValue(
       error instanceof Error ? error.message : "Login failed.",
+    );
+  }
+});
+
+export const relogin = createAsyncThunk<
+  AuthSession,
+  void,
+  { state: { auth: AuthState }; rejectValue: string }
+>("auth/relogin", async (_, { getState, rejectWithValue }) => {
+  const session = getState().auth.session;
+
+  if (!session) {
+    return rejectWithValue("No session is available for reconnecting.");
+  }
+
+  try {
+    const response = await reloginUser(
+      session.username,
+      session.reLoginCode,
+    );
+    return mapReLoginResponseToSession(session, response);
+  } catch (error) {
+    return rejectWithValue(
+      error instanceof Error ? error.message : "Reconnect failed.",
     );
   }
 });
@@ -115,6 +148,19 @@ const authSlice = createSlice({
         state.status = "error";
         state.session = null;
         state.error = action.payload ?? "Login failed.";
+      })
+      .addCase(relogin.pending, (state) => {
+        state.status = "connecting";
+        state.error = null;
+      })
+      .addCase(relogin.fulfilled, (state, action) => {
+        state.status = "authenticated";
+        state.session = action.payload;
+        state.error = null;
+      })
+      .addCase(relogin.rejected, (state, action) => {
+        state.status = "error";
+        state.error = action.payload ?? "Reconnect failed.";
       });
   },
 });

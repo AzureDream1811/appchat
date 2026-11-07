@@ -47,11 +47,9 @@ export async function sendSocketMessage<T>(
     },
   };
 
-  socket.send(JSON.stringify(request));
-
   return new Promise<T>((resolve, reject) => {
     const timeoutId = window.setTimeout(() => {
-      socket?.removeEventListener("message", handleMessage);
+      connectedSocket.removeEventListener("message", handleMessage);
       reject(new Error(`${event} request timed out.`));
     }, REQUEST_TIMEOUT);
 
@@ -74,7 +72,7 @@ export async function sendSocketMessage<T>(
       }
 
       window.clearTimeout(timeoutId);
-      socket?.removeEventListener("message", handleMessage);
+      connectedSocket.removeEventListener("message", handleMessage);
 
       if ("status" in response && response.status === "error") {
         const message =
@@ -91,5 +89,17 @@ export async function sendSocketMessage<T>(
     }
 
     connectedSocket.addEventListener("message", handleMessage);
+
+    try {
+      connectedSocket.send(JSON.stringify(request));
+    } catch (error) {
+      window.clearTimeout(timeoutId);
+      connectedSocket.removeEventListener("message", handleMessage);
+      reject(
+        error instanceof Error
+          ? error
+          : new Error("Unable to send the WebSocket request."),
+      );
+    }
   });
 }

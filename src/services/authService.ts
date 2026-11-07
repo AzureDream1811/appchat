@@ -1,6 +1,8 @@
 import type {
   LoginRequestDto,
   LoginResponseDataDto,
+  ReLoginRequestDto,
+  ReLoginResponseDataDto,
   RegisterRequestDto,
   RegisterResponseDataDto,
 } from "../api/events/authApi";
@@ -45,6 +47,30 @@ export async function login(
     typeof response.RE_LOGIN_CODE !== "string"
   ) {
     throw new Error("Invalid LOGIN response.");
+  }
+
+  return response;
+}
+
+export async function relogin(
+  username: string,
+  reLoginCode: string,
+): Promise<ReLoginResponseDataDto> {
+  const request: ReLoginRequestDto = {
+    user: username,
+    code: reLoginCode,
+  };
+  const response = await sendSocketMessage<ReLoginResponseDataDto>(
+    "RE_LOGIN",
+    request,
+  );
+
+  if (
+    typeof response !== "object" ||
+    response === null ||
+    typeof response.RE_LOGIN_CODE !== "string"
+  ) {
+    throw new Error("Invalid RE_LOGIN response.");
   }
 
   return response;
