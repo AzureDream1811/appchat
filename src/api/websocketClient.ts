@@ -6,6 +6,16 @@ const REQUEST_TIMEOUT = 10_000;
 
 let socket: WebSocket | null = null;
 
+type SocketEventListener = (response: any) => void;
+const globalListeners = new Set<SocketEventListener>();
+
+export function subscribeSocketEvent(callback: SocketEventListener): () => void {
+  globalListeners.add(callback);
+  return () => {
+    globalListeners.delete(callback);
+  };
+}
+
 export function connectSocket(): Promise<void> {
 
   // Check if the socket is already connected
@@ -18,6 +28,20 @@ export function connectSocket(): Promise<void> {
     socket = new WebSocket(SOCKET_URL);
 
     socket.onopen = () => resolve();
+    socket.onmessage = (event: MessageEvent) => {
+      try {
+        const payload = JSON.parse(String(event.data));
+        globalListeners.forEach((listener) => {
+          try {
+            listener(payload);
+          } catch (err) {
+            console.error("Listener error:", err);
+          }
+        });
+      } catch (err) {
+        console.error("Parse WS message error:", err);
+      }
+    };
     socket.onerror = () => reject(new Error("Cannot connect to chat server."));
     socket.onclose = () => {
       socket = null;
@@ -60,7 +84,14 @@ export async function sendSocketMessage<T>(
     // 3. Listen for server response
     function handleMessage(message: MessageEvent) {
       const response = JSON.parse(String(message.data));
+      console.log("[WebSocket Nhận về]:", response);
 
+      if (response.event === "AUTH" && response.status === "error") {
+        window.clearTimeout(timeoutId);
+        connectedSocket.removeEventListener("message", handleMessage);
+        reject(new Error(response.mes || "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!"));
+        return;
+      }
       // Only handle the matching event
       if (response.event !== event) return;
 
@@ -80,7 +111,20 @@ export async function sendSocketMessage<T>(
     connectedSocket.addEventListener("message", handleMessage);
 
     // 4. Send JSON request
+    console.log("[WebSocket Gửi đi]:", request);
     connectedSocket.send(JSON.stringify(request));
   });
+}
+export async function sendSocketEvent(event: string, data?: unknown): Promise<void> {
+  await connectSocket();
+  if (!socket || socket.readyState !== WebSocket.OPEN) {
+    throw new Error("WebSocket chưa được kết nối!");
+  }
+  const request = {
+    action: "onchat",
+    data: { event, data },
+  };
+  console.log("[WebSocket Bắn tin nhanh]:", request);
+  socket.send(JSON.stringify(request));
 }
 
