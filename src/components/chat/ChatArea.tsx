@@ -13,6 +13,9 @@ interface ChatAreaProps {
   onCloseInfo?: () => void;
   onLoadOlderMessages?: () => void;
   isLoadingOlder?: boolean;
+  onLeaveRoom?: () => void;
+  isLeavingRoom?: boolean;
+  canLeaveRoom?: boolean;
 }
 
 export default function ChatArea({
@@ -25,6 +28,9 @@ export default function ChatArea({
   onCloseInfo,
   onLoadOlderMessages,
   isLoadingOlder = false,
+  onLeaveRoom,
+  isLeavingRoom = false,
+  canLeaveRoom = true,
 }: ChatAreaProps) {
   const [inputText, setInputText] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -135,6 +141,21 @@ export default function ChatArea({
                 ))}
               </div>
             )}
+
+            <div className="mt-5 border-t border-slate-200 pt-4">
+              <button
+                type="button"
+                onClick={onLeaveRoom}
+                disabled={!canLeaveRoom || isLeavingRoom}
+                className="w-full rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isLeavingRoom
+                  ? "Đang rời phòng..."
+                  : canLeaveRoom
+                    ? "Rời phòng"
+                    : "Chủ phòng không thể rời"}
+              </button>
+            </div>
           </div>
         </aside>
       )}

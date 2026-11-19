@@ -10,6 +10,7 @@ import {
   createRoom,
   getRoomChatMessages,
   joinRoom,
+  outRoom,
 } from "../services/roomService";
 import type { Conversation } from "../types/chat";
 import type { RoomMemberDto } from "../api/events/roomApi";
@@ -35,9 +36,11 @@ export default function ChatPage() {
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
 
   const [roomMembers, setRoomMembers] = useState<Record<string, RoomMemberDto[]>>({});
+  const [roomOwners, setRoomOwners] = useState<Record<string, string>>({});
   const [roomPages, setRoomPages] = useState<Record<string, number>>({});
   const [isRoomInfoOpen, setIsRoomInfoOpen] = useState(false);
   const [isLoadingOlderRoom, setIsLoadingOlderRoom] = useState(false);
+  const [isLeavingRoom, setIsLeavingRoom] = useState(false);
 
   useEffect(() => {
     async function loadUserList() {
@@ -320,6 +323,12 @@ export default function ChatPage() {
         ...previous,
         [response.name]: response.user ?? response.userList ?? [],
       }));
+      if (response.own) {
+        setRoomOwners((previous) => ({
+          ...previous,
+          [response.name]: response.own!,
+        }));
+      }
       setRoomPages((previous) => ({
         ...previous,
         [newRoomId]: 1,
@@ -383,6 +392,12 @@ export default function ChatPage() {
         ...previous,
         [response.name]: response.user ?? response.userList ?? [],
       }));
+      if (response.own) {
+        setRoomOwners((previous) => ({
+          ...previous,
+          [response.name]: response.own!,
+        }));
+      }
       setRoomPages((previous) => ({
         ...previous,
         [targetRoomId]: 1,
@@ -425,6 +440,58 @@ export default function ChatPage() {
     }
   }
 
+  async function handleLeaveRoom() {
+    if (!selectedConversation || selectedConversation.type !== "group") {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Bạn có chắc muốn rời phòng "${selectedConversation.name}"?`,
+    );
+    if (!confirmed) return;
+
+    setIsLeavingRoom(true);
+    try {
+      await outRoom(selectedConversation.name);
+
+      setConversations((previous) =>
+        previous.filter(
+          (conversation) => conversation.id !== selectedConversation.id,
+        ),
+      );
+      setMessages((previous) => {
+        const next = { ...previous };
+        delete next[selectedConversation.id];
+        return next;
+      });
+      setRoomMembers((previous) => {
+        const next = { ...previous };
+        delete next[selectedConversation.name];
+        return next;
+      });
+      setRoomOwners((previous) => {
+        const next = { ...previous };
+        delete next[selectedConversation.name];
+        return next;
+      });
+      setRoomPages((previous) => {
+        const next = { ...previous };
+        delete next[selectedConversation.id];
+        return next;
+      });
+      setSelectedId(null);
+      setIsRoomInfoOpen(false);
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Không thể rời phòng.",
+      );
+    } finally {
+      setIsLeavingRoom(false);
+    }
+  }
+
   return (
     <div className="flex h-screen w-full overflow-hidden bg-white select-none">
       <SidebarNav activeTab={activeTab} onTabChange={setActiveTab} />
@@ -458,6 +525,12 @@ export default function ChatPage() {
           onCloseInfo={() => setIsRoomInfoOpen(false)}
           onLoadOlderMessages={handleLoadOlderRoomMessages}
           isLoadingOlder={isLoadingOlderRoom}
+          onLeaveRoom={handleLeaveRoom}
+          isLeavingRoom={isLeavingRoom}
+          canLeaveRoom={
+            selectedConversation.type !== "group" ||
+            roomOwners[selectedConversation.name] !== myName
+          }
         />
       ) : (
         <EmptyChat />
