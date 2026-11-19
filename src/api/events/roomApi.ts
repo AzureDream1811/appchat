@@ -37,6 +37,17 @@ export interface CreateRoomResponseDataDto {
 
 export type JoinRoomResponseDataDto = CreateRoomResponseDataDto;
 
+export interface GetRoomChatMessagesRequestDto {
+  name: string;
+  page: number;
+}
+
+export interface GetRoomChatMessagesResponseDataDto {
+  name: string;
+  user: RoomMemberDto[];
+  chatMess: RoomChatMessageDto[];
+}
+
 export interface OutRoomResponseDataDto {
   mes: string; 
 }

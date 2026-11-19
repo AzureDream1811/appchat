@@ -6,8 +6,13 @@ import EmptyChat from "../components/chat/EmptyChat";
 import type { Message } from "../types/chat";
 import { useAppSelector } from "../hooks/redux";
 import CreateGroupModal from "../components/chat/CreateGroupModal";
-import { createRoom, joinRoom } from "../services/roomService";
+import {
+  createRoom,
+  getRoomChatMessages,
+  joinRoom,
+} from "../services/roomService";
 import type { Conversation } from "../types/chat";
+import type { RoomMemberDto } from "../api/events/roomApi";
 import { useEffect } from "react";
 import {
   getPeopleChatMessages,
@@ -28,6 +33,11 @@ export default function ChatPage() {
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
+
+  const [roomMembers, setRoomMembers] = useState<Record<string, RoomMemberDto[]>>({});
+  const [roomPages, setRoomPages] = useState<Record<string, number>>({});
+  const [isRoomInfoOpen, setIsRoomInfoOpen] = useState(false);
+  const [isLoadingOlderRoom, setIsLoadingOlderRoom] = useState(false);
 
   useEffect(() => {
     async function loadUserList() {
@@ -101,8 +111,46 @@ export default function ChatPage() {
     return () => unsubscribe();
   }, [myName]);
 
+  async function loadRoomChat(roomName: string, page = 1, prepend = false) {
+    const roomId = `room-${roomName}`;
+
+    try {
+      const response = await getRoomChatMessages(roomName, page);
+      const members = response.user ?? [];
+      const history = response.chatMess ?? [];
+
+      setRoomMembers((previous) => ({
+        ...previous,
+        [roomName]: members,
+      }));
+
+      const roomMessages = history.map((item) => ({
+        id: `msg-${item.id}`,
+        conversationId: roomId,
+        senderName: item.name,
+        content: item.mes,
+        createdAt: item.createAt,
+        isMe: item.name === myName,
+      }));
+
+      setMessages((previous) => ({
+        ...previous,
+        [roomId]: prepend
+          ? [...roomMessages, ...(previous[roomId] ?? [])]
+          : roomMessages,
+      }));
+      setRoomPages((previous) => ({
+        ...previous,
+        [roomId]: page,
+      }));
+    } catch (error) {
+      console.error("Không thể tải dữ liệu phòng:", error);
+    }
+  }
+
   async function handleSelectConversation(conversationId: string) {
     setSelectedId(conversationId);
+    setIsRoomInfoOpen(false);
     setConversations((previous) =>
       previous.map((conversation) =>
         conversation.id === conversationId
@@ -115,7 +163,12 @@ export default function ChatPage() {
       (item) => item.id === conversationId,
     );
 
-    if (!conversation || conversation.type !== "direct") {
+    if (!conversation) {
+      return;
+    }
+
+    if (conversation.type === "group") {
+      await loadRoomChat(conversation.name, 1);
       return;
     }
 
@@ -235,6 +288,14 @@ export default function ChatPage() {
           isMe: msg.name === myName,
         })),
       }));
+      setRoomMembers((previous) => ({
+        ...previous,
+        [response.name]: response.user ?? response.userList ?? [],
+      }));
+      setRoomPages((previous) => ({
+        ...previous,
+        [newRoomId]: 1,
+      }));
       setSelectedId(newRoomId);
 
       setIsCreateGroupOpen(false);
@@ -290,6 +351,14 @@ export default function ChatPage() {
           isMe: msg.name === myName,
         })),
       }));
+      setRoomMembers((previous) => ({
+        ...previous,
+        [response.name]: response.user ?? response.userList ?? [],
+      }));
+      setRoomPages((previous) => ({
+        ...previous,
+        [targetRoomId]: 1,
+      }));
 
       setSelectedId(targetRoomId);
       setIsCreateGroupOpen(false);
@@ -303,6 +372,31 @@ export default function ChatPage() {
       setIsJoiningRoom(false);
     }
   }
+
+  async function handleLoadOlderRoomMessages() {
+    if (
+      isLoadingOlderRoom ||
+      !selectedConversation ||
+      selectedConversation.type !== "group"
+    ) {
+      return;
+    }
+
+    const nextPage =
+      (roomPages[selectedConversation.id] ?? 1) + 1;
+
+    setIsLoadingOlderRoom(true);
+    try {
+      await loadRoomChat(
+        selectedConversation.name,
+        nextPage,
+        true,
+      );
+    } finally {
+      setIsLoadingOlderRoom(false);
+    }
+  }
+
   return (
     <div className="flex h-screen w-full overflow-hidden bg-white select-none">
       <SidebarNav activeTab={activeTab} onTabChange={setActiveTab} />
@@ -322,7 +416,20 @@ export default function ChatPage() {
           conversation={selectedConversation}
           messages={currentMessages}
           onSendMessage={handleSendMessage}
-          onToggleInfo={() => alert("Mở thông tin hội thoại!")}
+          onToggleInfo={() => {
+            if (selectedConversation.type === "group") {
+              setIsRoomInfoOpen((previous) => !previous);
+            }
+          }}
+          isInfoOpen={isRoomInfoOpen}
+          roomMembers={
+            selectedConversation.type === "group"
+              ? roomMembers[selectedConversation.name] ?? []
+              : []
+          }
+          onCloseInfo={() => setIsRoomInfoOpen(false)}
+          onLoadOlderMessages={handleLoadOlderRoomMessages}
+          isLoadingOlder={isLoadingOlderRoom}
         />
       ) : (
         <EmptyChat />

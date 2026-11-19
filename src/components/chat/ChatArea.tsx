@@ -1,12 +1,18 @@
 import { useState, useRef, useEffect } from "react";
-import { Phone, Video, Info, Smile, Image, Paperclip, Send } from "lucide-react";
+import { Phone, Video, Info, Smile, Image, Paperclip, Send, X } from "lucide-react";
 import type { Conversation, Message } from "../../types/chat";
+import type { RoomMemberDto } from "../../api/events/roomApi";
 
 interface ChatAreaProps {
   conversation: Conversation;
   messages: Message[];
   onSendMessage: (content: string) => void;
   onToggleInfo?: () => void;
+  isInfoOpen?: boolean;
+  roomMembers?: RoomMemberDto[];
+  onCloseInfo?: () => void;
+  onLoadOlderMessages?: () => void;
+  isLoadingOlder?: boolean;
 }
 
 export default function ChatArea({
@@ -14,6 +20,11 @@ export default function ChatArea({
   messages,
   onSendMessage,
   onToggleInfo,
+  isInfoOpen = false,
+  roomMembers = [],
+  onCloseInfo,
+  onLoadOlderMessages,
+  isLoadingOlder = false,
 }: ChatAreaProps) {
   const [inputText, setInputText] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -36,7 +47,7 @@ export default function ChatArea({
   }
 
   return (
-    <div className="flex-1 h-full flex flex-col bg-[#eef0f3] overflow-hidden">
+    <div className="relative flex-1 h-full flex flex-col bg-[#eef0f3] overflow-hidden">
       
       <div className="h-16 bg-white border-b border-slate-200 px-5 flex items-center justify-between shrink-0 shadow-2xs">
         <div className="flex items-center gap-3">
@@ -84,7 +95,63 @@ export default function ChatArea({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      {isInfoOpen && conversation.type === "group" && (
+        <aside className="absolute right-0 top-0 bottom-0 z-30 w-80 border-l border-slate-200 bg-white shadow-xl">
+          <div className="flex h-16 items-center justify-between border-b border-slate-200 px-4">
+            <div>
+              <h3 className="font-bold text-slate-800">Thông tin phòng</h3>
+              <p className="text-xs text-slate-500">{roomMembers.length} thành viên</p>
+            </div>
+            <button
+              type="button"
+              onClick={onCloseInfo}
+              className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+              title="Đóng"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="p-4">
+            <p className="mb-3 text-sm font-semibold text-slate-700">
+              Thành viên hiện tại
+            </p>
+            {roomMembers.length === 0 ? (
+              <p className="text-sm text-slate-400">Không có thành viên.</p>
+            ) : (
+              <div className="space-y-2">
+                {roomMembers.map((member) => (
+                  <div
+                    key={`${member.id}-${member.name}`}
+                    className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-slate-50"
+                  >
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-200 text-sm font-bold text-slate-600">
+                      {member.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-sm font-medium text-slate-700">
+                      {member.name}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </aside>
+      )}
+
+      <div
+        className="flex-1 overflow-y-auto p-4 space-y-4"
+        onScroll={(event) => {
+          if (event.currentTarget.scrollTop === 0) {
+            onLoadOlderMessages?.();
+          }
+        }}
+      >
+        {isLoadingOlder && (
+          <p className="text-center text-xs text-slate-400">
+            Đang tải tin nhắn cũ...
+          </p>
+        )}
         {messages.map((msg) => {
           if (msg.isMe) {
             return (
