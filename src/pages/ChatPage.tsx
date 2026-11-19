@@ -314,6 +314,7 @@ export default function ChatPage() {
 
         onOpenCreateGroup={() => setIsCreateGroupOpen(true)}
         onStartDirectChat={handleStartDirectChat}
+        onJoinRoom={handleJoinGroup}
       />
 
       {selectedConversation ? (
