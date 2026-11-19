@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, UserPlus, Users } from "lucide-react";
+import { Search, Users } from "lucide-react";
 import type { Conversation } from "../../types/chat";
 import { checkUserExist } from "../../services/userService";
 
@@ -19,7 +19,6 @@ export default function ConversationList({
   onStartDirectChat,
 }: ConversationListProps) {
 
-  const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
   const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,20 +79,6 @@ export default function ConversationList({
 
         <button
           type="button"
-          onClick={() => {
-            setIsAddFriendOpen((prev) => !prev);
-            setUsername("");
-            setError(null);
-            setResult(null);
-          }}
-          className="p-2 text-slate-600 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition-colors"
-          title="Thêm bạn"
-        >
-          <UserPlus className="w-4 h-4" />
-        </button>
-
-        <button
-          type="button"
           onClick={onOpenCreateGroup}
           className="p-2 text-slate-600 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition-colors"
           title="Tạo nhóm chat"
@@ -103,8 +88,7 @@ export default function ConversationList({
       </div>
 
       {/* Check username */}
-      {isAddFriendOpen && (
-        <div className="p-3 border-b border-slate-100">
+      <div className="p-3 border-b border-slate-100">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -146,8 +130,7 @@ export default function ConversationList({
               {result}
             </p>
           )}
-        </div>
-      )}
+      </div>
 
       {/* Filter tabs */}
       <div className="flex px-4 pt-2 border-b border-slate-100 text-xs font-semibold text-slate-500 gap-4">
