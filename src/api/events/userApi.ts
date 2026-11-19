@@ -4,4 +4,13 @@ export interface GetUserListItemDto {
     actionTime: string;
 }
 
+export interface CheckUserExistRequestDto {
+    user: string;
+}
+
+export interface CheckUserExistResponseDto {
+    status: boolean;
+}
+
+
 export type GetUserListResponseDataDto = GetUserListItemDto[];

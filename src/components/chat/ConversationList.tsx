@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Search, UserPlus, Users } from "lucide-react";
 import type { Conversation } from "../../types/chat";
+import { checkUserExist } from "../../services/userService";
 
 interface ConversationListProps {
   conversations: Conversation[];
@@ -15,6 +16,13 @@ export default function ConversationList({
   onSelectConversation,
   onOpenCreateGroup,
 }: ConversationListProps) {
+
+  const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
+  const [username, setUsername] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<string | null>(null);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [filterTab, setFilterTab] = useState<"all" | "unread">("all");
 
@@ -23,10 +31,37 @@ export default function ConversationList({
     const matchesTab = filterTab === "all" || (filterTab === "unread" && (item.unreadCount ?? 0) > 0);
     return matchesSearch && matchesTab;
   });
+  async function handleCheckUsername() {
+    const value = username.trim();
+
+    if (!value) {
+      setError("Vui lòng nhập tên người dùng.");
+      setResult(null);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setResult(null);
+
+    try {
+      const user = await checkUserExist(value);
+      if (!user) {
+        setResult(`Người dùng "${value}" không tồn tại.`);
+      } else {
+        setResult(`Người dùng "${value}" đã tồn tại.`);
+      }
+    } catch (error) {
+      setError("Có lỗi xảy ra khi kiểm tra tên người dùng.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div className="w-80 md:w-88 h-full bg-white border-r border-slate-200 flex flex-col shrink-0">
-      
+
+      {/* Header: Search, UserPlus, Users */}
       <div className="p-3 border-b border-slate-100 flex items-center gap-2">
         <div className="relative flex-1">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -41,6 +76,12 @@ export default function ConversationList({
 
         <button
           type="button"
+          onClick={() => {
+            setIsAddFriendOpen((prev) => !prev);
+            setUsername("");
+            setError(null);
+            setResult(null);
+          }}
           className="p-2 text-slate-600 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition-colors"
           title="Thêm bạn"
         >
@@ -57,15 +98,62 @@ export default function ConversationList({
         </button>
       </div>
 
+      {/* Check username */}
+      {isAddFriendOpen && (
+        <div className="p-3 border-b border-slate-100">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleCheckUsername();
+            }}
+            className="flex gap-2"
+          >
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Nhập username..."
+              className="flex-1 min-w-0 bg-slate-100 px-3 py-2 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500/20"
+            />
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg disabled:opacity-50"
+            >
+              {loading ? "Đang tìm..." : "Kiểm tra"}
+            </button>
+          </form>
+
+          {loading && (
+            <p className="text-sm text-slate-500 mt-2">
+              Đang kiểm tra username...
+            </p>
+          )}
+
+          {error && (
+            <p className="text-sm text-red-500 mt-2">
+              {error}
+            </p>
+          )}
+
+          {result && (
+            <p className="text-sm text-blue-600 mt-2">
+              {result}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Filter tabs */}
       <div className="flex px-4 pt-2 border-b border-slate-100 text-xs font-semibold text-slate-500 gap-4">
         <button
           type="button"
           onClick={() => setFilterTab("all")}
-          className={`pb-2 transition-all relative ${
-            filterTab === "all"
-              ? "text-blue-600 font-bold"
-              : "hover:text-slate-800"
-          }`}
+          className={`pb-2 transition-all relative ${filterTab === "all"
+            ? "text-blue-600 font-bold"
+            : "hover:text-slate-800"
+            }`}
         >
           Tất cả
           {filterTab === "all" && (
@@ -76,11 +164,10 @@ export default function ConversationList({
         <button
           type="button"
           onClick={() => setFilterTab("unread")}
-          className={`pb-2 transition-all relative ${
-            filterTab === "unread"
-              ? "text-blue-600 font-bold"
-              : "hover:text-slate-800"
-          }`}
+          className={`pb-2 transition-all relative ${filterTab === "unread"
+            ? "text-blue-600 font-bold"
+            : "hover:text-slate-800"
+            }`}
         >
           Chưa đọc
           {filterTab === "unread" && (
@@ -89,6 +176,7 @@ export default function ConversationList({
         </button>
       </div>
 
+      {/* Conversation list */}
       <div className="flex-1 overflow-y-auto divide-y divide-slate-50">
         {filteredConversations.length === 0 ? (
           <div className="p-8 text-center text-sm text-slate-400">
@@ -102,11 +190,10 @@ export default function ConversationList({
               <div
                 key={item.id}
                 onClick={() => onSelectConversation(item.id)}
-                className={`flex items-center gap-3 p-3 cursor-pointer transition-colors select-none ${
-                  isSelected
-                    ? "bg-blue-50/80 border-l-4 border-blue-600"
-                    : "hover:bg-slate-50"
-                }`}
+                className={`flex items-center gap-3 p-3 cursor-pointer transition-colors select-none ${isSelected
+                  ? "bg-blue-50/80 border-l-4 border-blue-600"
+                  : "hover:bg-slate-50"
+                  }`}
               >
                 <div className="relative shrink-0">
                   <img
@@ -122,9 +209,8 @@ export default function ConversationList({
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-baseline mb-1">
                     <h4
-                      className={`text-base truncate ${
-                        isSelected ? "font-bold text-blue-900" : "font-semibold text-slate-800"
-                      }`}
+                      className={`text-base truncate ${isSelected ? "font-bold text-blue-900" : "font-semibold text-slate-800"
+                        }`}
                     >
                       {item.name}
                     </h4>
