@@ -6,7 +6,7 @@ const REQUEST_TIMEOUT = 10_000;
 
 let socket: WebSocket | null = null;
 
-type SocketEventListener = (response: any) => void;
+type SocketEventListener = (response: unknown) => void;
 const globalListeners = new Set<SocketEventListener>();
 
 export function subscribeSocketEvent(callback: SocketEventListener): () => void {
