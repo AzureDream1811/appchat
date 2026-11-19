@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type SyntheticEvent } from "react";
 import { Search, Users } from "lucide-react";
 import type { Conversation } from "../../types/chat";
 import { checkUserExist } from "../../services/userService";
@@ -9,6 +9,7 @@ interface ConversationListProps {
   onSelectConversation: (id: string) => void;
   onOpenCreateGroup?: () => void;
   onStartDirectChat?: (username: string) => void;
+  onJoinRoom?: (roomName: string) => Promise<void>;
 }
 
 export default function ConversationList({
@@ -17,9 +18,12 @@ export default function ConversationList({
   onSelectConversation,
   onOpenCreateGroup,
   onStartDirectChat,
+  onJoinRoom,
 }: ConversationListProps) {
 
   const [username, setUsername] = useState("");
+  const [roomName, setRoomName] = useState("");
+  const [joiningRoom, setJoiningRoom] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
@@ -58,6 +62,31 @@ export default function ConversationList({
       setError("Có lỗi xảy ra khi kiểm tra tên người dùng.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleJoinRoom(event: SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const value = roomName.trim();
+
+    if (!value) {
+      setError("Vui lòng nhập tên phòng.");
+      setResult(null);
+      return;
+    }
+
+    setJoiningRoom(true);
+    setError(null);
+    setResult(null);
+
+    try {
+      await Promise.resolve(onJoinRoom?.(value));
+      setResult(`Đã tham gia phòng "${value}".`);
+      setRoomName("");
+    } catch {
+      setError("Không thể tham gia phòng.");
+    } finally {
+      setJoiningRoom(false);
     }
   }
 
@@ -130,6 +159,26 @@ export default function ConversationList({
               {result}
             </p>
           )}
+      </div>
+
+      {/* Find & Join room */}
+      <div className="p-3 border-b border-slate-100">
+        <form onSubmit={handleJoinRoom} className="flex gap-2">
+          <input
+            type="text"
+            value={roomName}
+            onChange={(event) => setRoomName(event.target.value)}
+            placeholder="Nhập tên phòng..."
+            className="flex-1 min-w-0 bg-slate-100 px-3 py-2 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500/20"
+          />
+          <button
+            type="submit"
+            disabled={joiningRoom}
+            className="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg disabled:opacity-50"
+          >
+            {joiningRoom ? "Đang vào..." : "Tham gia"}
+          </button>
+        </form>
       </div>
 
       {/* Filter tabs */}

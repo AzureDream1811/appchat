@@ -1,6 +1,8 @@
 import type {
   CreateRoomRequestDto,
   CreateRoomResponseDataDto,
+  GetRoomChatMessagesRequestDto,
+  GetRoomChatMessagesResponseDataDto,
   JoinRoomRequestDto,
   JoinRoomResponseDataDto,
   OutRoomRequestDto,
@@ -8,17 +10,22 @@ import type {
 } from "../api/events/roomApi";
 import { sendSocketMessage } from "../api/websocketClient";
 
-
-export async function createRoom(roomName: string): Promise<CreateRoomResponseDataDto> {
+export async function createRoom(
+  roomName: string,
+): Promise<CreateRoomResponseDataDto> {
   const request: CreateRoomRequestDto = {
     name: roomName.trim(),
   };
 
-  return await sendSocketMessage<CreateRoomResponseDataDto>("CREATE_ROOM", request);
+  return await sendSocketMessage<CreateRoomResponseDataDto>(
+    "CREATE_ROOM",
+    request,
+  );
 }
 
-
-export async function joinRoom(roomName: string): Promise<JoinRoomResponseDataDto> {
+export async function joinRoom(
+  roomName: string,
+): Promise<JoinRoomResponseDataDto> {
   const request: JoinRoomRequestDto = {
     name: roomName.trim(),
   };
@@ -26,11 +33,27 @@ export async function joinRoom(roomName: string): Promise<JoinRoomResponseDataDt
   return await sendSocketMessage<JoinRoomResponseDataDto>("JOIN_ROOM", request);
 }
 
-
-export async function outRoom(roomName: string): Promise<OutRoomResponseDataDto> {
+export async function outRoom(
+  roomName: string,
+): Promise<OutRoomResponseDataDto> {
   const request: OutRoomRequestDto = {
     name: roomName.trim(),
   };
 
   return await sendSocketMessage<OutRoomResponseDataDto>("OUT_ROOM", request);
+}
+
+export async function getRoomChatMessages(
+  roomName: string,
+  page = 1,
+): Promise<GetRoomChatMessagesResponseDataDto> {
+  const request: GetRoomChatMessagesRequestDto = {
+    name: roomName.trim(),
+    page,
+  };
+
+  return await sendSocketMessage<GetRoomChatMessagesResponseDataDto>(
+    "GET_ROOM_CHAT_MES",
+    request,
+  );
 }

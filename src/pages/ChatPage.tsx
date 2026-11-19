@@ -6,8 +6,14 @@ import EmptyChat from "../components/chat/EmptyChat";
 import type { Message } from "../types/chat";
 import { useAppSelector } from "../hooks/redux";
 import CreateGroupModal from "../components/chat/CreateGroupModal";
-import { createRoom, joinRoom } from "../services/roomService";
+import {
+  createRoom,
+  getRoomChatMessages,
+  joinRoom,
+  outRoom,
+} from "../services/roomService";
 import type { Conversation } from "../types/chat";
+import type { RoomMemberDto } from "../api/events/roomApi";
 import { useEffect } from "react";
 import {
   getPeopleChatMessages,
@@ -28,6 +34,10 @@ export default function ChatPage() {
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
+
+  const [roomMembers, setRoomMembers] = useState<Record<string, RoomMemberDto[]>>({});
+  const [isRoomInfoOpen, setIsRoomInfoOpen] = useState(false);
+  const [isLeavingRoom, setIsLeavingRoom] = useState(false);
 
   useEffect(() => {
     async function loadUserList() {
@@ -101,8 +111,46 @@ export default function ChatPage() {
     return () => unsubscribe();
   }, [myName]);
 
+  async function loadRoomChat(roomName: string, page = 1) {
+    const roomId = `room-${roomName}`;
+
+    try {
+      const response = await getRoomChatMessages(roomName, page);
+      const members =
+        response.user ??
+        response.userList ??
+        [];
+      const history =
+        response.chatMess ??
+        response.chatData ??
+        [];
+
+      setRoomMembers((previous) => ({
+        ...previous,
+        [roomName]: members,
+      }));
+
+      const roomMessages = history.map((item) => ({
+        id: `msg-${item.id}`,
+        conversationId: roomId,
+        senderName: item.name,
+        content: item.mes,
+        createdAt: item.createAt,
+        isMe: item.name === myName,
+      }));
+
+      setMessages((previous) => ({
+        ...previous,
+        [roomId]: roomMessages,
+      }));
+    } catch (error) {
+      console.error("Không thể tải dữ liệu phòng:", error);
+    }
+  }
+
   async function handleSelectConversation(conversationId: string) {
     setSelectedId(conversationId);
+    setIsRoomInfoOpen(false);
     setConversations((previous) =>
       previous.map((conversation) =>
         conversation.id === conversationId
@@ -115,7 +163,12 @@ export default function ChatPage() {
       (item) => item.id === conversationId,
     );
 
-    if (!conversation || conversation.type !== "direct") {
+    if (!conversation) {
+      return;
+    }
+
+    if (conversation.type === "group") {
+      await loadRoomChat(conversation.name, 1);
       return;
     }
 
@@ -164,10 +217,18 @@ export default function ChatPage() {
       ];
     });
 
-    setMessages((prev) => ({
-      ...prev,
-      [`user-${username}`]: [],
-    }));
+    setMessages((prev) => {
+      const conversationId = `user-${username}`;
+
+      if (prev[conversationId]) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        [conversationId]: [],
+      };
+    });
 
     setSelectedId(`user-${username}`);
   }
@@ -235,6 +296,10 @@ export default function ChatPage() {
           isMe: msg.name === myName,
         })),
       }));
+      setRoomMembers((previous) => ({
+        ...previous,
+        [response.name]: response.user ?? response.userList ?? [],
+      }));
       setSelectedId(newRoomId);
 
       setIsCreateGroupOpen(false);
@@ -290,6 +355,10 @@ export default function ChatPage() {
           isMe: msg.name === myName,
         })),
       }));
+      setRoomMembers((previous) => ({
+        ...previous,
+        [response.name]: response.user ?? response.userList ?? [],
+      }));
 
       setSelectedId(targetRoomId);
       setIsCreateGroupOpen(false);
@@ -303,6 +372,49 @@ export default function ChatPage() {
       setIsJoiningRoom(false);
     }
   }
+
+  async function handleLeaveRoom() {
+    if (!selectedConversation || selectedConversation.type !== "group") {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Bạn có chắc muốn rời phòng "${selectedConversation.name}"?`,
+    );
+    if (!confirmed) return;
+
+    setIsLeavingRoom(true);
+    try {
+      await outRoom(selectedConversation.name);
+
+      setConversations((previous) =>
+        previous.filter(
+          (conversation) => conversation.id !== selectedConversation.id,
+        ),
+      );
+      setMessages((previous) => {
+        const next = { ...previous };
+        delete next[selectedConversation.id];
+        return next;
+      });
+      setRoomMembers((previous) => {
+        const next = { ...previous };
+        delete next[selectedConversation.name];
+        return next;
+      });
+      setSelectedId(null);
+      setIsRoomInfoOpen(false);
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Không thể rời phòng.",
+      );
+    } finally {
+      setIsLeavingRoom(false);
+    }
+  }
+
   return (
     <div className="flex h-screen w-full overflow-hidden bg-white select-none">
       <SidebarNav activeTab={activeTab} onTabChange={setActiveTab} />
@@ -314,6 +426,7 @@ export default function ChatPage() {
 
         onOpenCreateGroup={() => setIsCreateGroupOpen(true)}
         onStartDirectChat={handleStartDirectChat}
+        onJoinRoom={handleJoinGroup}
       />
 
       {selectedConversation ? (
@@ -321,7 +434,21 @@ export default function ChatPage() {
           conversation={selectedConversation}
           messages={currentMessages}
           onSendMessage={handleSendMessage}
-          onToggleInfo={() => alert("Mở thông tin hội thoại!")}
+          onToggleInfo={() => {
+            if (selectedConversation.type === "group") {
+              setIsRoomInfoOpen((previous) => !previous);
+            }
+          }}
+          isInfoOpen={isRoomInfoOpen}
+          roomMembers={
+            selectedConversation.type === "group"
+              ? roomMembers[selectedConversation.name] ?? []
+              : []
+          }
+          onCloseInfo={() => setIsRoomInfoOpen(false)}
+          onLeaveRoom={handleLeaveRoom}
+          isLeavingRoom={isLeavingRoom}
+          canLeaveRoom={true}
         />
       ) : (
         <EmptyChat />
