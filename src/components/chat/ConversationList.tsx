@@ -8,6 +8,7 @@ interface ConversationListProps {
   selectedId: string | null;
   onSelectConversation: (id: string) => void;
   onOpenCreateGroup?: () => void;
+  onStartDirectChat?: (username: string) => void;
 }
 
 export default function ConversationList({
@@ -15,6 +16,7 @@ export default function ConversationList({
   selectedId,
   onSelectConversation,
   onOpenCreateGroup,
+  onStartDirectChat,
 }: ConversationListProps) {
 
   const [isAddFriendOpen, setIsAddFriendOpen] = useState(false);
@@ -31,6 +33,7 @@ export default function ConversationList({
     const matchesTab = filterTab === "all" || (filterTab === "unread" && (item.unreadCount ?? 0) > 0);
     return matchesSearch && matchesTab;
   });
+  
   async function handleCheckUsername() {
     const value = username.trim();
 
@@ -49,7 +52,8 @@ export default function ConversationList({
       if (!user) {
         setResult(`Người dùng "${value}" không tồn tại.`);
       } else {
-        setResult(`Người dùng "${value}" đã tồn tại.`);
+        setResult(`Người dùng "${value}" tồn tại. Bạn có thể bắt đầu trò chuyện.`);
+        onStartDirectChat?.(value);
       }
     } catch (error) {
       setError("Có lỗi xảy ra khi kiểm tra tên người dùng.");

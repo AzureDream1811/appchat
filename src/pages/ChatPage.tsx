@@ -63,6 +63,40 @@ export default function ChatPage() {
 
     return () => unsubscribe();
   }, [myName]);
+
+
+  function handleStartDirectChat(username: string) {
+    setConversations((prev) => {
+      const conversationId = `user-${username}`;
+
+      if (prev.some((c) => c.id === conversationId)) {
+        setSelectedId(conversationId);
+        return prev;
+      }
+
+      return [
+        {
+          id: conversationId,
+          name: username,
+          avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(username)}`,
+          type: "direct",
+          lastMessage: "",
+          lastMessageTime: "",
+          unreadCount: 0,
+          isOnline: false,
+        },
+        ...prev,
+      ];
+    });
+
+    setMessages((prev) => ({
+      ...prev,
+      [`user-${username}`]: [],
+    }));
+
+    setSelectedId(`user-${username}`);
+  }
+
   async function handleSendMessage(content: string) {
     if (!selectedId || !selectedConversation) return;
     const newMessage: Message = {
@@ -201,6 +235,7 @@ export default function ChatPage() {
         }}
 
         onOpenCreateGroup={() => setIsCreateGroupOpen(true)}
+        onStartDirectChat={handleStartDirectChat}
       />
 
       {selectedConversation ? (
