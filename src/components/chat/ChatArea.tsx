@@ -11,12 +11,9 @@ interface ChatAreaProps {
   isInfoOpen?: boolean;
   roomMembers?: RoomMemberDto[];
   onCloseInfo?: () => void;
-  onLoadOlderMessages?: () => void;
-  isLoadingOlder?: boolean;
   onLeaveRoom?: () => void;
   isLeavingRoom?: boolean;
   canLeaveRoom?: boolean;
-  roomOwner?: string;
 }
 
 export default function ChatArea({
@@ -27,12 +24,9 @@ export default function ChatArea({
   isInfoOpen = false,
   roomMembers = [],
   onCloseInfo,
-  onLoadOlderMessages,
-  isLoadingOlder = false,
   onLeaveRoom,
   isLeavingRoom = false,
   canLeaveRoom = true,
-  roomOwner,
 }: ChatAreaProps) {
   const [inputText, setInputText] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -139,11 +133,6 @@ export default function ChatArea({
                     <span className="text-sm font-medium text-slate-700">
                       {member.name}
                     </span>
-                    {member.name === roomOwner && (
-                      <span className="ml-auto rounded-full bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-600">
-                        Chủ phòng
-                      </span>
-                    )}
                   </div>
                 ))}
               </div>
@@ -169,17 +158,7 @@ export default function ChatArea({
 
       <div
         className="flex-1 overflow-y-auto p-4 space-y-4"
-        onScroll={(event) => {
-          if (event.currentTarget.scrollTop === 0) {
-            onLoadOlderMessages?.();
-          }
-        }}
       >
-        {isLoadingOlder && (
-          <p className="text-center text-xs text-slate-400">
-            Đang tải tin nhắn cũ...
-          </p>
-        )}
         {messages.map((msg) => {
           if (msg.isMe) {
             return (

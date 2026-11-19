@@ -36,10 +36,7 @@ export default function ChatPage() {
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
 
   const [roomMembers, setRoomMembers] = useState<Record<string, RoomMemberDto[]>>({});
-  const [roomOwners, setRoomOwners] = useState<Record<string, string>>({});
-  const [roomPages, setRoomPages] = useState<Record<string, number>>({});
   const [isRoomInfoOpen, setIsRoomInfoOpen] = useState(false);
-  const [isLoadingOlderRoom, setIsLoadingOlderRoom] = useState(false);
   const [isLeavingRoom, setIsLeavingRoom] = useState(false);
 
   useEffect(() => {
@@ -48,22 +45,7 @@ export default function ChatPage() {
 
       try {
         const userList = await getUserList();
-        const visibleItems = userList
-          .filter((item) =>
-            item.name.trim().length > 0 &&
-            (item.type === 0 || item.type === 1) &&
-            !(item.type === 0 && item.name === session.username),
-          )
-          .sort((a, b) => b.actionTime.localeCompare(a.actionTime));
-
-        const uniqueItems = visibleItems.filter((item, index, allItems) =>
-          allItems.findIndex((candidate) =>
-            candidate.type === item.type &&
-            candidate.name === item.name,
-          ) === index,
-        );
-
-        const conversationList = uniqueItems.map((item) => {
+        const conversationList = userList.map((item) => {
           const isRoom = item.type === 1;
 
           return {
@@ -129,7 +111,7 @@ export default function ChatPage() {
     return () => unsubscribe();
   }, [myName]);
 
-  async function loadRoomChat(roomName: string, page = 1, prepend = false) {
+  async function loadRoomChat(roomName: string, page = 1) {
     const roomId = `room-${roomName}`;
 
     try {
@@ -142,23 +124,6 @@ export default function ChatPage() {
         response.chatMess ??
         response.chatData ??
         [];
-
-      if (response.own) {
-        setRoomOwners((previous) => ({
-          ...previous,
-          [roomName]: response.own!,
-        }));
-
-        const ownerExists = members.some(
-          (member) => member.name === response.own,
-        );
-        if (!ownerExists) {
-          members.unshift({
-            id: -1,
-            name: response.own,
-          });
-        }
-      }
 
       setRoomMembers((previous) => ({
         ...previous,
@@ -174,29 +139,9 @@ export default function ChatPage() {
         isMe: item.name === myName,
       }));
 
-      setMessages((previous) => {
-        const existingMessages = previous[roomId] ?? [];
-
-        const mergedMessages = prepend
-          ? [...roomMessages, ...existingMessages]
-          : [...roomMessages, ...existingMessages];
-
-        const uniqueMessages = mergedMessages.filter(
-          (message, index, allMessages) =>
-            allMessages.findIndex((item) =>
-              item.senderName === message.senderName &&
-              item.content === message.content
-            ) === index,
-        );
-
-        return {
-          ...previous,
-          [roomId]: uniqueMessages,
-        };
-      });
-      setRoomPages((previous) => ({
+      setMessages((previous) => ({
         ...previous,
-        [roomId]: page,
+        [roomId]: roomMessages,
       }));
     } catch (error) {
       console.error("Không thể tải dữ liệu phòng:", error);
@@ -353,24 +298,7 @@ export default function ChatPage() {
       }));
       setRoomMembers((previous) => ({
         ...previous,
-        [response.name]: (() => {
-          const members = response.user ?? response.userList ?? [];
-          if (!response.own) return members;
-          if (members.some((member) => member.name === response.own)) {
-            return members;
-          }
-          return [{ id: -1, name: response.own }, ...members];
-        })(),
-      }));
-      if (response.own) {
-        setRoomOwners((previous) => ({
-          ...previous,
-          [response.name]: response.own!,
-        }));
-      }
-      setRoomPages((previous) => ({
-        ...previous,
-        [newRoomId]: 1,
+        [response.name]: response.user ?? response.userList ?? [],
       }));
       setSelectedId(newRoomId);
 
@@ -429,24 +357,7 @@ export default function ChatPage() {
       }));
       setRoomMembers((previous) => ({
         ...previous,
-        [response.name]: (() => {
-          const members = response.user ?? response.userList ?? [];
-          if (!response.own) return members;
-          if (members.some((member) => member.name === response.own)) {
-            return members;
-          }
-          return [{ id: -1, name: response.own }, ...members];
-        })(),
-      }));
-      if (response.own) {
-        setRoomOwners((previous) => ({
-          ...previous,
-          [response.name]: response.own!,
-        }));
-      }
-      setRoomPages((previous) => ({
-        ...previous,
-        [targetRoomId]: 1,
+        [response.name]: response.user ?? response.userList ?? [],
       }));
 
       setSelectedId(targetRoomId);
@@ -459,30 +370,6 @@ export default function ChatPage() {
       );
     } finally {
       setIsJoiningRoom(false);
-    }
-  }
-
-  async function handleLoadOlderRoomMessages() {
-    if (
-      isLoadingOlderRoom ||
-      !selectedConversation ||
-      selectedConversation.type !== "group"
-    ) {
-      return;
-    }
-
-    const nextPage =
-      (roomPages[selectedConversation.id] ?? 1) + 1;
-
-    setIsLoadingOlderRoom(true);
-    try {
-      await loadRoomChat(
-        selectedConversation.name,
-        nextPage,
-        true,
-      );
-    } finally {
-      setIsLoadingOlderRoom(false);
     }
   }
 
@@ -513,16 +400,6 @@ export default function ChatPage() {
       setRoomMembers((previous) => {
         const next = { ...previous };
         delete next[selectedConversation.name];
-        return next;
-      });
-      setRoomOwners((previous) => {
-        const next = { ...previous };
-        delete next[selectedConversation.name];
-        return next;
-      });
-      setRoomPages((previous) => {
-        const next = { ...previous };
-        delete next[selectedConversation.id];
         return next;
       });
       setSelectedId(null);
@@ -568,20 +445,10 @@ export default function ChatPage() {
               ? roomMembers[selectedConversation.name] ?? []
               : []
           }
-          roomOwner={
-            selectedConversation.type === "group"
-              ? roomOwners[selectedConversation.name]
-              : undefined
-          }
           onCloseInfo={() => setIsRoomInfoOpen(false)}
-          onLoadOlderMessages={handleLoadOlderRoomMessages}
-          isLoadingOlder={isLoadingOlderRoom}
           onLeaveRoom={handleLeaveRoom}
           isLeavingRoom={isLeavingRoom}
-          canLeaveRoom={
-            selectedConversation.type !== "group" ||
-            roomOwners[selectedConversation.name] !== myName
-          }
+          canLeaveRoom={true}
         />
       ) : (
         <EmptyChat />
