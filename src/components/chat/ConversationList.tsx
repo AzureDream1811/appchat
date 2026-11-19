@@ -55,7 +55,7 @@ export default function ConversationList({
         setResult(`Người dùng "${value}" tồn tại. Bạn có thể bắt đầu trò chuyện.`);
         onStartDirectChat?.(value);
       }
-    } catch (error) {
+    } catch {
       setError("Có lỗi xảy ra khi kiểm tra tên người dùng.");
     } finally {
       setLoading(false);

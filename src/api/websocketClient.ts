@@ -1,4 +1,5 @@
 import type { WebSocketRequest } from "./websocketTypes";
+import type { ReceiveChatMessageDto } from "./events/messageApi";
 
 const SOCKET_URL =
   import.meta.env.VITE_WEBSOCKET_URL ?? "wss://chat.longapp.io.vn/chat/chat";
@@ -6,7 +7,14 @@ const REQUEST_TIMEOUT = 10_000;
 
 let socket: WebSocket | null = null;
 
-type SocketEventListener = (response: unknown) => void;
+export interface SocketResponse {
+  event: string;
+  status: "success" | "error";
+  data?: ReceiveChatMessageDto;
+  mes?: string;
+}
+
+type SocketEventListener = (response: SocketResponse) => void;
 const globalListeners = new Set<SocketEventListener>();
 
 export function subscribeSocketEvent(callback: SocketEventListener): () => void {

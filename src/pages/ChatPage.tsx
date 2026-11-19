@@ -3,23 +3,26 @@ import SidebarNav from "../components/chat/SidebarNav";
 import ConversationList from "../components/chat/ConversationList";
 import ChatArea from "../components/chat/ChatArea";
 import EmptyChat from "../components/chat/EmptyChat";
-import { initialConversations, initialMessages } from "../data/ChatData";
 import type { Message } from "../types/chat";
 import { useAppSelector } from "../hooks/redux";
 import CreateGroupModal from "../components/chat/CreateGroupModal";
 import { createRoom, joinRoom } from "../services/roomService";
 import type { Conversation } from "../types/chat";
 import { useEffect } from "react";
-import { sendChatMessage } from "../services/messageService";
+import {
+  getPeopleChatMessages,
+  sendChatMessage,
+} from "../services/messageService";
+import { getUserList } from "../services/userService";
 import { subscribeSocketEvent } from "../api/websocketClient";
 
 export default function ChatPage() {
   const session = useAppSelector((state) => state.auth.session);
   const myName = session?.username ?? "Tôi";
   const [activeTab, setActiveTab] = useState("messages");
-  const [conversations, setConversations] = useState(initialConversations);
-  const [messages, setMessages] = useState(initialMessages);
-  const [selectedId, setSelectedId] = useState<string | null>("group-1");
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [messages, setMessages] = useState<Record<string, Message[]>>({});
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const selectedConversation = conversations.find((c) => c.id === selectedId);
   const currentMessages = selectedId ? messages[selectedId] ?? [] : [];
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
@@ -27,9 +30,42 @@ export default function ChatPage() {
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
 
   useEffect(() => {
+    async function loadUserList() {
+      if (!session) return;
+
+      try {
+        const userList = await getUserList();
+        const conversationList = userList.map((item) => {
+          const isRoom = item.type === 1;
+
+          return {
+            id: isRoom ? `room-${item.name}` : `user-${item.name}`,
+            name: item.name,
+            avatar: `https://api.dicebear.com/7.x/${
+              isRoom ? "bottts" : "avataaars"
+            }/svg?seed=${encodeURIComponent(item.name)}`,
+            type: isRoom ? "group" as const : "direct" as const,
+            lastMessage: "",
+            lastMessageTime: item.actionTime,
+            unreadCount: 0,
+            isOnline: false,
+          };
+        });
+
+        setConversations(conversationList);
+      } catch (error) {
+        console.error("Không thể tải danh sách conversation:", error);
+      }
+    }
+
+    void loadUserList();
+  }, [session]);
+
+  useEffect(() => {
     const unsubscribe = subscribeSocketEvent((response) => {
       if (response.event === "SEND_CHAT" && response.status === "success") {
         const data = response.data;
+        if (!data) return;
         if (data.name === myName) return;
         const isRoom = data.type === 1;
         const targetRoomId = isRoom ? `room-${data.to}` : `user-${data.name}`;
@@ -47,22 +83,61 @@ export default function ChatPage() {
           [targetRoomId]: [...(prev[targetRoomId] ?? []), incomingMessage],
         }));
 
-        setConversations((prev) =>
-          prev.map((c) =>
-            c.id === targetRoomId || c.name === data.to || c.name === data.name
-              ? {
-                ...c,
-                lastMessage: data.mes,
-                lastMessageTime: incomingMessage.createdAt,
-              }
-              : c
-          )
+        setConversations(
+          (prev) =>
+            prev.map((c) =>
+              c.id === targetRoomId
+                ? {
+                  ...c,
+                  lastMessage: data.mes,
+                  lastMessageTime: incomingMessage.createdAt,
+                }
+                : c
+            )
         );
       }
     });
 
     return () => unsubscribe();
   }, [myName]);
+
+  async function handleSelectConversation(conversationId: string) {
+    setSelectedId(conversationId);
+    setConversations((previous) =>
+      previous.map((conversation) =>
+        conversation.id === conversationId
+          ? { ...conversation, unreadCount: 0 }
+          : conversation,
+      ),
+    );
+
+    const conversation = conversations.find(
+      (item) => item.id === conversationId,
+    );
+
+    if (!conversation || conversation.type !== "direct") {
+      return;
+    }
+
+    try {
+      const history = await getPeopleChatMessages(conversation.name, 1);
+      const conversationMessages = history.map((item) => ({
+        id: `msg-${item.id}`,
+        conversationId,
+        senderName: item.name,
+        content: item.mes,
+        createdAt: item.createAt,
+        isMe: item.name === myName,
+      }));
+
+      setMessages((previous) => ({
+        ...previous,
+        [conversationId]: conversationMessages,
+      }));
+    } catch (error) {
+      console.error("Không thể tải lịch sử cuộc trò chuyện:", error);
+    }
+  }
 
 
   function handleStartDirectChat(username: string) {
@@ -163,8 +238,12 @@ export default function ChatPage() {
       setSelectedId(newRoomId);
 
       setIsCreateGroupOpen(false);
-    } catch (error: any) {
-      alert(error.message || "Tạo nhóm thất bại! Tên nhóm có thể đã tồn tại trên hệ thống.");
+    } catch (error: unknown) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Tạo nhóm thất bại! Tên nhóm có thể đã tồn tại trên hệ thống.",
+      );
     } finally {
       setIsCreatingRoom(false);
     }
@@ -214,8 +293,12 @@ export default function ChatPage() {
 
       setSelectedId(targetRoomId);
       setIsCreateGroupOpen(false);
-    } catch (error: any) {
-      alert(error.message || "Tham gia phòng thất bại! Phòng có thể không tồn tại.");
+    } catch (error: unknown) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Tham gia phòng thất bại! Phòng có thể không tồn tại.",
+      );
     } finally {
       setIsJoiningRoom(false);
     }
@@ -227,12 +310,7 @@ export default function ChatPage() {
       <ConversationList
         conversations={conversations}
         selectedId={selectedId}
-        onSelectConversation={(id) => {
-          setSelectedId(id);
-          setConversations((prev) =>
-            prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c))
-          );
-        }}
+        onSelectConversation={handleSelectConversation}
 
         onOpenCreateGroup={() => setIsCreateGroupOpen(true)}
         onStartDirectChat={handleStartDirectChat}
