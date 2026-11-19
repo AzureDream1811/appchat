@@ -1,5 +1,12 @@
-import type { SendChatRequestDto } from "../api/events/messageApi";
-import { sendSocketEvent } from "../api/websocketClient";
+import type {
+  GetPeopleChatMessagesRequestDto,
+  GetPeopleChatMessagesResponseDto,
+  SendChatRequestDto,
+} from "../api/events/messageApi";
+import {
+  sendSocketEvent,
+  sendSocketMessage,
+} from "../api/websocketClient";
 
 export async function sendChatMessage(
   type: "room" | "people",
@@ -13,4 +20,19 @@ export async function sendChatMessage(
   };
 
   await sendSocketEvent("SEND_CHAT", request);
+}
+
+export async function getPeopleChatMessages(
+  username: string,
+  page = 1,
+): Promise<GetPeopleChatMessagesResponseDto> {
+  const request: GetPeopleChatMessagesRequestDto = {
+    name: username,
+    page,
+  };
+
+  return await sendSocketMessage<GetPeopleChatMessagesResponseDto>(
+    "GET_PEOPLE_CHAT_MES",
+    request,
+  );
 }
