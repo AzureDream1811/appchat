@@ -16,6 +16,7 @@ interface ChatAreaProps {
   onLeaveRoom?: () => void;
   isLeavingRoom?: boolean;
   canLeaveRoom?: boolean;
+  roomOwner?: string;
 }
 
 export default function ChatArea({
@@ -31,6 +32,7 @@ export default function ChatArea({
   onLeaveRoom,
   isLeavingRoom = false,
   canLeaveRoom = true,
+  roomOwner,
 }: ChatAreaProps) {
   const [inputText, setInputText] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -137,6 +139,11 @@ export default function ChatArea({
                     <span className="text-sm font-medium text-slate-700">
                       {member.name}
                     </span>
+                    {member.name === roomOwner && (
+                      <span className="ml-auto rounded-full bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-600">
+                        Chủ phòng
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>

@@ -143,6 +143,23 @@ export default function ChatPage() {
         response.chatData ??
         [];
 
+      if (response.own) {
+        setRoomOwners((previous) => ({
+          ...previous,
+          [roomName]: response.own!,
+        }));
+
+        const ownerExists = members.some(
+          (member) => member.name === response.own,
+        );
+        if (!ownerExists) {
+          members.unshift({
+            id: -1,
+            name: response.own,
+          });
+        }
+      }
+
       setRoomMembers((previous) => ({
         ...previous,
         [roomName]: members,
@@ -336,7 +353,14 @@ export default function ChatPage() {
       }));
       setRoomMembers((previous) => ({
         ...previous,
-        [response.name]: response.user ?? response.userList ?? [],
+        [response.name]: (() => {
+          const members = response.user ?? response.userList ?? [];
+          if (!response.own) return members;
+          if (members.some((member) => member.name === response.own)) {
+            return members;
+          }
+          return [{ id: -1, name: response.own }, ...members];
+        })(),
       }));
       if (response.own) {
         setRoomOwners((previous) => ({
@@ -405,7 +429,14 @@ export default function ChatPage() {
       }));
       setRoomMembers((previous) => ({
         ...previous,
-        [response.name]: response.user ?? response.userList ?? [],
+        [response.name]: (() => {
+          const members = response.user ?? response.userList ?? [];
+          if (!response.own) return members;
+          if (members.some((member) => member.name === response.own)) {
+            return members;
+          }
+          return [{ id: -1, name: response.own }, ...members];
+        })(),
       }));
       if (response.own) {
         setRoomOwners((previous) => ({
@@ -536,6 +567,11 @@ export default function ChatPage() {
             selectedConversation.type === "group"
               ? roomMembers[selectedConversation.name] ?? []
               : []
+          }
+          roomOwner={
+            selectedConversation.type === "group"
+              ? roomOwners[selectedConversation.name]
+              : undefined
           }
           onCloseInfo={() => setIsRoomInfoOpen(false)}
           onLoadOlderMessages={handleLoadOlderRoomMessages}
