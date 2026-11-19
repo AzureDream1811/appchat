@@ -48,7 +48,22 @@ export default function ChatPage() {
 
       try {
         const userList = await getUserList();
-        const conversationList = userList.map((item) => {
+        const visibleItems = userList
+          .filter((item) =>
+            item.name.trim().length > 0 &&
+            (item.type === 0 || item.type === 1) &&
+            !(item.type === 0 && item.name === session.username),
+          )
+          .sort((a, b) => b.actionTime.localeCompare(a.actionTime));
+
+        const uniqueItems = visibleItems.filter((item, index, allItems) =>
+          allItems.findIndex((candidate) =>
+            candidate.type === item.type &&
+            candidate.name === item.name,
+          ) === index,
+        );
+
+        const conversationList = uniqueItems.map((item) => {
           const isRoom = item.type === 1;
 
           return {
