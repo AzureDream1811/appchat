@@ -44,8 +44,10 @@ export interface GetRoomChatMessagesRequestDto {
 
 export interface GetRoomChatMessagesResponseDataDto {
   name: string;
-  user: RoomMemberDto[];
-  chatMess: RoomChatMessageDto[];
+  user?: RoomMemberDto[];
+  userList?: RoomMemberDto[];
+  chatMess?: RoomChatMessageDto[];
+  chatData?: RoomChatMessageDto[];
 }
 
 export interface OutRoomResponseDataDto {

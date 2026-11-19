@@ -116,8 +116,14 @@ export default function ChatPage() {
 
     try {
       const response = await getRoomChatMessages(roomName, page);
-      const members = response.user ?? [];
-      const history = response.chatMess ?? [];
+      const members =
+        response.user ??
+        response.userList ??
+        [];
+      const history =
+        response.chatMess ??
+        response.chatData ??
+        [];
 
       setRoomMembers((previous) => ({
         ...previous,
@@ -133,12 +139,26 @@ export default function ChatPage() {
         isMe: item.name === myName,
       }));
 
-      setMessages((previous) => ({
-        ...previous,
-        [roomId]: prepend
-          ? [...roomMessages, ...(previous[roomId] ?? [])]
-          : roomMessages,
-      }));
+      setMessages((previous) => {
+        const existingMessages = previous[roomId] ?? [];
+
+        const mergedMessages = prepend
+          ? [...roomMessages, ...existingMessages]
+          : [...roomMessages, ...existingMessages];
+
+        const uniqueMessages = mergedMessages.filter(
+          (message, index, allMessages) =>
+            allMessages.findIndex((item) =>
+              item.senderName === message.senderName &&
+              item.content === message.content
+            ) === index,
+        );
+
+        return {
+          ...previous,
+          [roomId]: uniqueMessages,
+        };
+      });
       setRoomPages((previous) => ({
         ...previous,
         [roomId]: page,
@@ -217,10 +237,18 @@ export default function ChatPage() {
       ];
     });
 
-    setMessages((prev) => ({
-      ...prev,
-      [`user-${username}`]: [],
-    }));
+    setMessages((prev) => {
+      const conversationId = `user-${username}`;
+
+      if (prev[conversationId]) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        [conversationId]: [],
+      };
+    });
 
     setSelectedId(`user-${username}`);
   }
