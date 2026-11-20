@@ -1,4 +1,4 @@
-import { useState, type SyntheticEvent } from "react";
+import { useState, type SyntheticEvent, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../hooks/redux";
 import { clearAuthError, login } from "../state/authSlice";
@@ -6,10 +6,16 @@ import { clearAuthError, login } from "../state/authSlice";
 export default function LoginPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { status, error } = useAppSelector((state) => state.auth);
+  const { status, error, session } = useAppSelector((state) => state.auth);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const isSubmitting = status === "connecting";
+
+  useEffect(() => {
+    if (session) {
+      navigate("/chat");
+    }
+  }, [session, navigate]);
 
   function handleSubmit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();

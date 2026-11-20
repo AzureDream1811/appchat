@@ -68,16 +68,10 @@ export async function relogin(
     "RE_LOGIN",
     request,
   );
-
-  if (
-    typeof response !== "object" ||
-    response === null ||
-    typeof response.RE_LOGIN_CODE !== "string"
-  ) {
-    throw new Error("Invalid RE_LOGIN response.");
+  if (response && typeof response.RE_LOGIN_CODE === "string") {
+    return response;
   }
-
-  return response;
+  return { RE_LOGIN_CODE: reLoginCode };
 }
 
 export async function logout(): Promise<LogoutResponseDto> {

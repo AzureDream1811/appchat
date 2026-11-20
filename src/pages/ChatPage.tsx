@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import SidebarNav from "../components/chat/SidebarNav";
 import ConversationList from "../components/chat/ConversationList";
 import ChatArea from "../components/chat/ChatArea";
 import EmptyChat from "../components/chat/EmptyChat";
 import type { Message } from "../types/chat";
-import { useAppSelector } from "../hooks/redux";
+import { useAppDispatch, useAppSelector } from "../hooks/redux";
 import CreateGroupModal from "../components/chat/CreateGroupModal";
 import {
   createRoom,
@@ -14,17 +14,22 @@ import {
 } from "../services/roomService";
 import type { Conversation } from "../types/chat";
 import type { RoomMemberDto } from "../api/events/roomApi";
-import { useEffect } from "react";
 import {
   getPeopleChatMessages,
   sendChatMessage,
 } from "../services/messageService";
 import { getUserList } from "../services/userService";
 import { subscribeSocketEvent } from "../api/websocketClient";
+import { useNavigate } from "react-router-dom";
+import { relogin } from "../state/authSlice";
+import { isSocketAuthenticated } from "../api/websocketClient";
 
 export default function ChatPage() {
+  const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const session = useAppSelector((state) => state.auth.session);
   const myName = session?.username ?? "Tôi";
+  const [isInitializing, setIsInitializing] = useState(true);
   const [activeTab, setActiveTab] = useState("messages");
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [messages, setMessages] = useState<Record<string, Message[]>>({});
@@ -33,17 +38,34 @@ export default function ChatPage() {
   const currentMessages = selectedId ? messages[selectedId] ?? [] : [];
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
+  const [chatPages, setChatPages] = useState<Record<string, number>>({});
+  const [chatHasMore, setChatHasMore] = useState<Record<string, boolean>>({});
+  const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
-
   const [roomMembers, setRoomMembers] = useState<Record<string, RoomMemberDto[]>>({});
   const [isRoomInfoOpen, setIsRoomInfoOpen] = useState(false);
   const [isLeavingRoom, setIsLeavingRoom] = useState(false);
+  const initializingRef = useRef(false);
 
   useEffect(() => {
-    async function loadUserList() {
-      if (!session) return;
+    if (initializingRef.current) return;
+    initializingRef.current = true;
+
+    async function initChatSession() {
+      if (!session) {
+        navigate("/login");
+        return;
+      }
 
       try {
+        setIsInitializing(true);
+
+        if (!isSocketAuthenticated()) {
+          console.log("[ChatPage] Phát hiện reload trang, đang tự động kết nối lại (RE_LOGIN)...");
+          await dispatch(relogin()).unwrap();
+          console.log("[ChatPage] RE_LOGIN thành công!");
+        }
+
         const userList = await getUserList();
         const conversationList = userList.map((item) => {
           const isRoom = item.type === 1;
@@ -51,10 +73,9 @@ export default function ChatPage() {
           return {
             id: isRoom ? `room-${item.name}` : `user-${item.name}`,
             name: item.name,
-            avatar: `https://api.dicebear.com/7.x/${
-              isRoom ? "bottts" : "avataaars"
-            }/svg?seed=${encodeURIComponent(item.name)}`,
-            type: isRoom ? "group" as const : "direct" as const,
+            avatar: `https://api.dicebear.com/7.x/${isRoom ? "bottts" : "avataaars"
+              }/svg?seed=${encodeURIComponent(item.name)}`,
+            type: isRoom ? ("group" as const) : ("direct" as const),
             lastMessage: "",
             lastMessageTime: item.actionTime,
             unreadCount: 0,
@@ -64,12 +85,16 @@ export default function ChatPage() {
 
         setConversations(conversationList);
       } catch (error) {
-        console.error("Không thể tải danh sách conversation:", error);
+        console.error("Khởi tạo phiên chat thất bại:", error);
+        alert("Phiên đăng nhập đã hết hạn hoặc server khởi động lại. Vui lòng đăng nhập lại.");
+        navigate("/login");
+      } finally {
+        setIsInitializing(false);
       }
     }
 
-    void loadUserList();
-  }, [session]);
+    void initChatSession();
+  }, [session, dispatch, navigate]);
 
   useEffect(() => {
     const unsubscribe = subscribeSocketEvent((response) => {
@@ -113,24 +138,15 @@ export default function ChatPage() {
 
   async function loadRoomChat(roomName: string, page = 1) {
     const roomId = `room-${roomName}`;
-
     try {
       const response = await getRoomChatMessages(roomName, page);
-      const members =
-        response.user ??
-        response.userList ??
-        [];
-      const history =
-        response.chatMess ??
-        response.chatData ??
-        [];
-
+      const members = response.user ?? response.userList ?? [];
+      const history = response.chatMess ?? response.chatData ?? [];
       setRoomMembers((previous) => ({
         ...previous,
         [roomName]: members,
       }));
-
-      const roomMessages = history.map((item) => ({
+      const mappedMessages: Message[] = history.map((item) => ({
         id: `msg-${item.id}`,
         conversationId: roomId,
         senderName: item.name,
@@ -138,11 +154,19 @@ export default function ChatPage() {
         createdAt: item.createAt,
         isMe: item.name === myName,
       }));
-
-      setMessages((previous) => ({
-        ...previous,
-        [roomId]: roomMessages,
-      }));
+      if (page === 1) {
+        setMessages((prev) => ({
+          ...prev,
+          [roomId]: mappedMessages,
+        }));
+      } else {
+        setMessages((prev) => ({
+          ...prev,
+          [roomId]: [...mappedMessages, ...(prev[roomId] ?? [])],
+        }));
+      }
+      setChatPages((prev) => ({ ...prev, [roomId]: page }));
+      setChatHasMore((prev) => ({ ...prev, [roomId]: history.length >= 50 }));
     } catch (error) {
       console.error("Không thể tải dữ liệu phòng:", error);
     }
@@ -187,11 +211,51 @@ export default function ChatPage() {
         ...previous,
         [conversationId]: conversationMessages,
       }));
+      setChatPages((prev) => ({ ...prev, [conversationId]: 1 }));
+      setChatHasMore((prev) => ({ ...prev, [conversationId]: history.length >= 50 }));
     } catch (error) {
       console.error("Không thể tải lịch sử cuộc trò chuyện:", error);
     }
   }
 
+  async function handleLoadMoreMessages() {
+    if (!selectedId || !selectedConversation || isLoadingOlderMessages) return;
+
+    const currentPage = chatPages[selectedId] ?? 1;
+    const hasMore = chatHasMore[selectedId] ?? false;
+    if (!hasMore) return;
+
+    const nextPage = currentPage + 1;
+    setIsLoadingOlderMessages(true);
+
+    try {
+      if (selectedConversation.type === "group") {
+        await loadRoomChat(selectedConversation.name, nextPage);
+      } else {
+        const history = await getPeopleChatMessages(selectedConversation.name, nextPage);
+        const olderMessages = history.map((item) => ({
+          id: `msg-${item.id}`,
+          conversationId: selectedId,
+          senderName: item.name,
+          content: item.mes,
+          createdAt: item.createAt,
+          isMe: item.name === myName,
+        }));
+
+        setMessages((prev) => ({
+          ...prev,
+          [selectedId]: [...olderMessages, ...(prev[selectedId] ?? [])],
+        }));
+
+        setChatPages((prev) => ({ ...prev, [selectedId]: nextPage }));
+        setChatHasMore((prev) => ({ ...prev, [selectedId]: history.length >= 50 }));
+      }
+    } catch (error) {
+      console.error("Không thể tải thêm tin nhắn cũ:", error);
+    } finally {
+      setIsLoadingOlderMessages(false);
+    }
+  }
 
   function handleStartDirectChat(username: string) {
     setConversations((prev) => {
@@ -414,6 +478,14 @@ export default function ChatPage() {
       setIsLeavingRoom(false);
     }
   }
+  if (isInitializing) {
+    return (
+      <div className="flex h-screen w-full flex-col items-center justify-center bg-slate-50 gap-3">
+        <div className="w-10 h-10 border-4 border-[#0068ff] border-t-transparent rounded-full animate-spin" />
+        <p className="text-slate-600 text-sm font-medium">Đang kết nối lại phiên trò chuyện...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-white select-none">
@@ -449,6 +521,9 @@ export default function ChatPage() {
           onLeaveRoom={handleLeaveRoom}
           isLeavingRoom={isLeavingRoom}
           canLeaveRoom={true}
+          onLoadMore={handleLoadMoreMessages}
+          hasMore={selectedId ? chatHasMore[selectedId] ?? false : false}
+          isLoadingMore={isLoadingOlderMessages}
         />
       ) : (
         <EmptyChat />

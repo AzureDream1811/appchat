@@ -14,6 +14,9 @@ interface ChatAreaProps {
   onLeaveRoom?: () => void;
   isLeavingRoom?: boolean;
   canLeaveRoom?: boolean;
+  onLoadMore?: () => Promise<void>;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
 }
 
 export default function ChatArea({
@@ -27,14 +30,36 @@ export default function ChatArea({
   onLeaveRoom,
   isLeavingRoom = false,
   canLeaveRoom = true,
+  onLoadMore,
+  hasMore = false,
+  isLoadingMore = false,
 }: ChatAreaProps) {
   const [inputText, setInputText] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isLoadingOlderRef = useRef(false);
   useEffect(() => {
+    if (isLoadingOlderRef.current) {
+      isLoadingOlderRef.current = false;
+      return;
+    }
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+  async function handleScroll(e: React.UIEvent<HTMLDivElement>) {
+    const container = e.currentTarget;
+    if (container.scrollTop === 0 && hasMore && !isLoadingMore && onLoadMore) {
+      isLoadingOlderRef.current = true;
+      const scrollHeightBefore = container.scrollHeight;
 
+      await onLoadMore();
+      requestAnimationFrame(() => {
+        if (scrollContainerRef.current) {
+          const scrollHeightAfter = scrollContainerRef.current.scrollHeight;
+          scrollContainerRef.current.scrollTop = scrollHeightAfter - scrollHeightBefore;
+        }
+      });
+    }
+  }
   function handleSend() {
     if (!inputText.trim()) return;
     onSendMessage(inputText.trim());
@@ -47,10 +72,9 @@ export default function ChatArea({
       handleSend();
     }
   }
-
   return (
     <div className="relative flex-1 h-full flex flex-col bg-[#eef0f3] overflow-hidden">
-      
+
       <div className="h-16 bg-white border-b border-slate-200 px-5 flex items-center justify-between shrink-0 shadow-2xs">
         <div className="flex items-center gap-3">
           <div className="relative">
@@ -157,8 +181,17 @@ export default function ChatArea({
       )}
 
       <div
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
         className="flex-1 overflow-y-auto p-4 space-y-4"
       >
+        {isLoadingMore && (
+          <div className="flex items-center justify-center py-2">
+            <div className="w-5 h-5 border-2 border-[#0068ff] border-t-transparent rounded-full animate-spin mr-2" />
+            <span className="text-xs text-slate-500 font-medium">Đang tải tin nhắn cũ hơn...</span>
+          </div>
+        )}
+
         {messages.map((msg) => {
           if (msg.isMe) {
             return (
@@ -199,7 +232,8 @@ export default function ChatArea({
               </div>
             </div>
           );
-        })}
+        })
+        }
         <div ref={messagesEndRef} />
       </div>
 

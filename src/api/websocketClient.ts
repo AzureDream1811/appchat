@@ -7,6 +7,11 @@ const REQUEST_TIMEOUT = 10_000;
 
 let socket: WebSocket | null = null;
 
+let isSocketAuth = false;
+export function isSocketAuthenticated(): boolean {
+  return socket !== null && socket.readyState === WebSocket.OPEN && isSocketAuth;
+}
+
 export interface SocketResponse {
   event: string;
   status: "success" | "error";
@@ -53,6 +58,7 @@ export function connectSocket(): Promise<void> {
     socket.onerror = () => reject(new Error("Cannot connect to chat server."));
     socket.onclose = () => {
       socket = null;
+      isSocketAuth = false;
     };
   });
 }
@@ -60,6 +66,7 @@ export function connectSocket(): Promise<void> {
 export function disconnectSocket(): void {
   socket?.close();
   socket = null;
+  isSocketAuth = false;
 }
 
 
@@ -97,6 +104,7 @@ export async function sendSocketMessage<T>(
       if (response.event === "AUTH" && response.status === "error") {
         window.clearTimeout(timeoutId);
         connectedSocket.removeEventListener("message", handleMessage);
+        isSocketAuth = false;
         reject(new Error(response.mes || "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!"));
         return;
       }
@@ -111,7 +119,12 @@ export async function sendSocketMessage<T>(
         reject(new Error(response.mes || "Request failed."));
         return;
       }
-
+      if (
+        (event === "LOGIN" || event === "RE_LOGIN") &&
+        response.status === "success"
+      ) {
+        isSocketAuth = true;
+      }
       // Return response data
       resolve(response.data as T);
     }
