@@ -28,9 +28,21 @@ export interface AuthState {
   error: string | null;
 }
 
+const STORAGE_KEY = "appchat_session";
+function loadSessionFromStorage(): AuthSession | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as AuthSession;
+  } catch {
+    return null;
+  }
+}
+
+const savedSession = loadSessionFromStorage();
 const initialState: AuthState = {
-  status: "idle",
-  session: null,
+  status: savedSession ? "authenticated" : "idle",
+  session: savedSession,
   error: null,
 };
 
@@ -128,6 +140,7 @@ const authSlice = createSlice({
       state.status = "idle";
       state.session = null;
       state.error = null;
+      localStorage.removeItem(STORAGE_KEY);
     },
     clearAuthError(state) {
       state.error = null;
@@ -158,6 +171,7 @@ const authSlice = createSlice({
         state.status = "authenticated";
         state.session = action.payload;
         state.error = null;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(action.payload)); 
       })
       .addCase(login.rejected, (state, action) => {
         state.status = "error";
@@ -172,10 +186,13 @@ const authSlice = createSlice({
         state.status = "authenticated";
         state.session = action.payload;
         state.error = null;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(action.payload));
       })
       .addCase(relogin.rejected, (state, action) => {
         state.status = "error";
+        state.session = null;
         state.error = action.payload ?? "Reconnect failed.";
+        localStorage.removeItem(STORAGE_KEY);
       })
       .addCase(logout.pending, (state) => {
         state.status = "connecting";
@@ -185,6 +202,7 @@ const authSlice = createSlice({
         state.status = "idle";
         state.session = null;
         state.error = null;
+        localStorage.removeItem(STORAGE_KEY);
       })
       .addCase(logout.rejected, (state, action) => {
         state.status = "error";

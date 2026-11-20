@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import SidebarNav from "../components/chat/SidebarNav";
 import ConversationList from "../components/chat/ConversationList";
 import ChatArea from "../components/chat/ChatArea";
 import EmptyChat from "../components/chat/EmptyChat";
 import type { Message } from "../types/chat";
-import { useAppSelector } from "../hooks/redux";
+import { useAppDispatch, useAppSelector } from "../hooks/redux";
 import CreateGroupModal from "../components/chat/CreateGroupModal";
 import {
   createRoom,
@@ -14,17 +14,22 @@ import {
 } from "../services/roomService";
 import type { Conversation } from "../types/chat";
 import type { RoomMemberDto } from "../api/events/roomApi";
-import { useEffect } from "react";
 import {
   getPeopleChatMessages,
   sendChatMessage,
 } from "../services/messageService";
 import { getUserList } from "../services/userService";
 import { subscribeSocketEvent } from "../api/websocketClient";
+import { useNavigate } from "react-router-dom";
+import { relogin } from "../state/authSlice";
+import { isSocketAuthenticated } from "../api/websocketClient";
 
 export default function ChatPage() {
+  const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const session = useAppSelector((state) => state.auth.session);
   const myName = session?.username ?? "Tôi";
+  const [isInitializing, setIsInitializing] = useState(true);
   const [activeTab, setActiveTab] = useState("messages");
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [messages, setMessages] = useState<Record<string, Message[]>>({});
@@ -38,38 +43,57 @@ export default function ChatPage() {
   const [roomMembers, setRoomMembers] = useState<Record<string, RoomMemberDto[]>>({});
   const [isRoomInfoOpen, setIsRoomInfoOpen] = useState(false);
   const [isLeavingRoom, setIsLeavingRoom] = useState(false);
+  const initializingRef = useRef(false);
 
-  useEffect(() => {
-    async function loadUserList() {
-      if (!session) return;
+useEffect(() => {
+  if (initializingRef.current) return;
+  initializingRef.current = true;
 
-      try {
-        const userList = await getUserList();
-        const conversationList = userList.map((item) => {
-          const isRoom = item.type === 1;
-
-          return {
-            id: isRoom ? `room-${item.name}` : `user-${item.name}`,
-            name: item.name,
-            avatar: `https://api.dicebear.com/7.x/${
-              isRoom ? "bottts" : "avataaars"
-            }/svg?seed=${encodeURIComponent(item.name)}`,
-            type: isRoom ? "group" as const : "direct" as const,
-            lastMessage: "",
-            lastMessageTime: item.actionTime,
-            unreadCount: 0,
-            isOnline: false,
-          };
-        });
-
-        setConversations(conversationList);
-      } catch (error) {
-        console.error("Không thể tải danh sách conversation:", error);
-      }
+  async function initChatSession() {
+    if (!session) {
+      navigate("/login");
+      return;
     }
 
-    void loadUserList();
-  }, [session]);
+    try {
+      setIsInitializing(true);
+
+      if (!isSocketAuthenticated()) {
+        console.log("[ChatPage] Phát hiện reload trang, đang tự động kết nối lại (RE_LOGIN)...");
+        await dispatch(relogin()).unwrap();
+        console.log("[ChatPage] RE_LOGIN thành công!");
+      }
+
+      const userList = await getUserList();
+      const conversationList = userList.map((item) => {
+        const isRoom = item.type === 1;
+
+        return {
+          id: isRoom ? `room-${item.name}` : `user-${item.name}`,
+          name: item.name,
+          avatar: `https://api.dicebear.com/7.x/${
+            isRoom ? "bottts" : "avataaars"
+          }/svg?seed=${encodeURIComponent(item.name)}`,
+          type: isRoom ? ("group" as const) : ("direct" as const),
+          lastMessage: "",
+          lastMessageTime: item.actionTime,
+          unreadCount: 0,
+          isOnline: false,
+        };
+      });
+
+      setConversations(conversationList);
+    } catch (error) {
+      console.error("Khởi tạo phiên chat thất bại:", error);
+      alert("Phiên đăng nhập đã hết hạn hoặc server khởi động lại. Vui lòng đăng nhập lại.");
+      navigate("/login");
+    } finally {
+      setIsInitializing(false);
+    }
+  }
+
+  void initChatSession();
+}, [session, dispatch, navigate]);
 
   useEffect(() => {
     const unsubscribe = subscribeSocketEvent((response) => {
@@ -413,6 +437,14 @@ export default function ChatPage() {
     } finally {
       setIsLeavingRoom(false);
     }
+  }
+  if (isInitializing) {
+    return (
+      <div className="flex h-screen w-full flex-col items-center justify-center bg-slate-50 gap-3">
+        <div className="w-10 h-10 border-4 border-[#0068ff] border-t-transparent rounded-full animate-spin" />
+        <p className="text-slate-600 text-sm font-medium">Đang kết nối lại phiên trò chuyện...</p>
+      </div>
+    );
   }
 
   return (
