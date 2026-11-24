@@ -1,4 +1,4 @@
-import { useState, type SyntheticEvent, useEffect } from "react";
+import { useState, type SyntheticEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAppDispatch } from "../../hooks/useAppDispatch";
 import { setSession } from "../../store/slices/authSlice";
@@ -8,10 +8,10 @@ import type { LoginResponse } from "../../types/auth";
 export default function LoginPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { status, error } = useAppSelector((state) => state.auth);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const isSubmitting = status === "connecting";
 
   function handleSubmit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();

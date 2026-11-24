@@ -35,11 +35,79 @@ export default function ChatArea({
   isLoadingMore = false,
 }: ChatAreaProps) {
   const [inputText, setInputText] = useState("");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const scrollBeforeLoadRef = useRef<{
+    conversationId: string;
+    height: number;
+    top: number;
+  } | null>(null);
+  const loadingMoreRef = useRef(false);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  useLayoutEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const previousScroll = scrollBeforeLoadRef.current;
+    if (previousScroll?.conversationId === conversation.id) {
+      container.scrollTop =
+        previousScroll.top + container.scrollHeight - previousScroll.height;
+      scrollBeforeLoadRef.current = null;
+      return;
+    }
+
+    scrollBeforeLoadRef.current = null;
+    container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+  }, [conversation.id, messages]);
+
+  async function handleLoadMore() {
+    const container = messagesContainerRef.current;
+    if (
+      !container ||
+      !onLoadMore ||
+      !hasMore ||
+      isLoadingMore ||
+      loadingMoreRef.current
+    ) {
+      return;
+    }
+
+    loadingMoreRef.current = true;
+    scrollBeforeLoadRef.current = {
+      conversationId: conversation.id,
+      height: container.scrollHeight,
+      top: container.scrollTop,
+    };
+
+    try {
+      await onLoadMore();
+    } catch (error) {
+      console.error("Không thể tải thêm tin nhắn cũ:", error);
+      scrollBeforeLoadRef.current = null;
+    } finally {
+      loadingMoreRef.current = false;
+      requestAnimationFrame(() => {
+        const previousScroll = scrollBeforeLoadRef.current;
+        const currentContainer = messagesContainerRef.current;
+        if (
+          previousScroll?.conversationId === conversation.id &&
+          currentContainer
+        ) {
+          currentContainer.scrollTop =
+            previousScroll.top +
+            currentContainer.scrollHeight -
+            previousScroll.height;
+          scrollBeforeLoadRef.current = null;
+        }
+      });
+    }
+  }
+
+  function handleMessagesScroll() {
+    const container = messagesContainerRef.current;
+    if (container && container.scrollTop <= 40) {
+      void handleLoadMore();
+    }
+  }
 
   function handleSend() {
     if (!inputText.trim()) return;
@@ -162,8 +230,27 @@ export default function ChatArea({
       )}
 
       <div
+        ref={messagesContainerRef}
+        onScroll={handleMessagesScroll}
         className="flex-1 overflow-y-auto p-4 space-y-4"
       >
+        {(hasMore || isLoadingMore) && (
+          <div className="flex justify-center">
+            {isLoadingMore ? (
+              <span className="text-sm text-slate-500">
+                Đang tải tin nhắn cũ...
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void handleLoadMore()}
+                className="rounded-md px-3 py-1 text-sm font-medium text-blue-600 hover:bg-white"
+              >
+                Tải tin nhắn cũ hơn
+              </button>
+            )}
+          </div>
+        )}
         {messages.map((msg) => {
           if (msg.isMe) {
             return (
@@ -205,7 +292,6 @@ export default function ChatArea({
             </div>
           );
         })}
-        <div ref={messagesEndRef} />
       </div>
 
       <div className="bg-white border-t border-slate-200 p-3 shrink-0">
