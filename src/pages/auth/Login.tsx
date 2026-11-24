@@ -18,7 +18,11 @@ export default function LoginPage() {
 
     void dispatch(login({ username, password }))
       .unwrap()
-      .then(() => navigate("/chat"))
+      .then((session) => {
+        localStorage.setItem("user", session.username);
+        localStorage.setItem("reLoginCode", session.reLoginCode);
+        navigate("/chat");
+      })
       .catch(() => undefined);
   }
 

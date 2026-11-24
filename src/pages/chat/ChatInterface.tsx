@@ -3,7 +3,7 @@ import Header from "../common/Header";
 import SideBar from "./SideBar";
 import ChatWindow from "./ChatWindow";
 import EmptyChat from "./EmptyChat";
-import type { Message } from "../../types/chat";
+import type { Message, ReceiveChatMessageDto } from "../../types/chat";
 import { useAppSelector } from "../../hooks/useAppSelector";
 import CreateGroupModal from "./CreateGroupModal";
 import {
@@ -74,7 +74,7 @@ export default function ChatInterface() {
   useEffect(() => {
     const unsubscribe = subscribeSocketEvent((response) => {
       if (response.event === "SEND_CHAT" && response.status === "success") {
-        const data = response.data;
+        const data = response.data as ReceiveChatMessageDto | undefined;
         if (!data) return;
         if (data.name === myName) return;
         const isRoom = data.type === 1;

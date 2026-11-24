@@ -26,3 +26,7 @@ export interface ReLoginRequestDto {
 
 export type ReLoginResponseDataDto = LoginResponseDataDto;
 export type LogoutResponseDto = string;
+
+export interface LoginResult {
+  RE_LOGIN_CODE: string;
+}

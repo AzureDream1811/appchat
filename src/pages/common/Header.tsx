@@ -21,6 +21,8 @@ export default function SidebarNav({ activeTab = "messages", onTabChange }: Side
 
   function handleLogout() {
     if (window.confirm("Bạn có chắc chắn muốn đăng xuất không?")) {
+      localStorage.removeItem("user");
+      localStorage.removeItem("reLoginCode");
       void dispatch(logout())
         .unwrap()
         .then(() => navigate("/login"))

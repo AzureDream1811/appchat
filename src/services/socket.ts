@@ -1,5 +1,4 @@
 import type { WebSocketRequest } from "../types/ws";
-import type { ReceiveChatMessageDto } from "../types/chat";
 
 const SOCKET_URL =
   import.meta.env.VITE_WEBSOCKET_URL ?? "wss://chat.longapp.io.vn/chat/chat";
@@ -10,7 +9,7 @@ let socket: WebSocket | null = null;
 export interface SocketResponse {
   event: string;
   status: "success" | "error";
-  data?: ReceiveChatMessageDto;
+  data?: unknown;
   mes?: string;
 }
 

@@ -16,6 +16,7 @@ import {
 } from "../../services/authService";
 
 export type AuthStatus =
+  | "bootstrapping"
   | "idle"
   | "connecting"
   | "success"
@@ -29,7 +30,7 @@ export interface AuthState {
 }
 
 const initialState: AuthState = {
-  status: "idle",
+  status: "bootstrapping",
   session: null,
   error: null,
 };
@@ -129,6 +130,18 @@ const authSlice = createSlice({
       state.session = null;
       state.error = null;
     },
+    setSession(
+      state,
+      action: PayloadAction<{ username: string; reLoginCode: string }>,
+    ) {
+      state.status = "authenticated";
+      state.session = {
+        username: action.payload.username,
+        reLoginCode: action.payload.reLoginCode,
+        authenticatedAt: new Date().toISOString(),
+      };
+      state.error = null;
+    },
     clearAuthError(state) {
       state.error = null;
       if (state.status === "error") {
@@ -198,6 +211,7 @@ export const {
   loginSucceeded,
   loginFailed,
   clearSession,
+  setSession,
   clearAuthError,
 } = authSlice.actions;
 
