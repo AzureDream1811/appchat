@@ -59,16 +59,16 @@ class SocketService {
           listener(response);
         }
 
-        for (const request of [...this.pendingRequests]) {
-          if (request.event !== response.event) continue;
+        const request = [...this.pendingRequests].find(
+          (pending) => pending.event === response.event,
+        );
 
+        if (request) {
           window.clearTimeout(request.timeoutId);
           this.pendingRequests.delete(request);
 
           if (response.status === "error") {
-            request.reject(
-              new Error(response.mes || "Request failed."),
-            );
+            request.reject(new Error(response.mes || "Request failed."));
           } else {
             request.resolve(response.data);
           }

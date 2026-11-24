@@ -23,13 +23,40 @@ import { getUserList } from "../../services/userService";
 import { socket } from "../../services/socket";
 import type { WsResponse } from "../../types/ws";
 
+const CHAT_CACHE_KEY = "appchat.chat-cache";
+
+interface ChatCache {
+  conversations: Conversation[];
+  messages: Record<string, Message[]>;
+  selectedId: string | null;
+}
+
+function loadChatCache(): ChatCache {
+  try {
+    const cached = localStorage.getItem(CHAT_CACHE_KEY);
+    if (!cached) {
+      return { conversations: [], messages: {}, selectedId: null };
+    }
+
+    const parsed = JSON.parse(cached) as Partial<ChatCache>;
+    return {
+      conversations: parsed.conversations ?? [],
+      messages: parsed.messages ?? {},
+      selectedId: parsed.selectedId ?? null,
+    };
+  } catch {
+    return { conversations: [], messages: {}, selectedId: null };
+  }
+}
+
 export default function ChatInterface() {
+  const initialCache = loadChatCache();
   const user = useAppSelector((state) => state.auth.user);
   const myName = user ?? "Tôi";
   const [activeTab, setActiveTab] = useState("messages");
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [messages, setMessages] = useState<Record<string, Message[]>>({});
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<Conversation[]>(initialCache.conversations);
+  const [messages, setMessages] = useState<Record<string, Message[]>>(initialCache.messages);
+  const [selectedId, setSelectedId] = useState<string | null>(initialCache.selectedId);
   const selectedConversation = conversations.find((c) => c.id === selectedId);
   const currentMessages = selectedId ? messages[selectedId] ?? [] : [];
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
@@ -39,6 +66,11 @@ export default function ChatInterface() {
   const [roomMembers, setRoomMembers] = useState<Record<string, RoomMember[]>>({});
   const [isRoomInfoOpen, setIsRoomInfoOpen] = useState(false);
   const [isLeavingRoom, setIsLeavingRoom] = useState(false);
+
+  useEffect(() => {
+    const cache: ChatCache = { conversations, messages, selectedId };
+    localStorage.setItem(CHAT_CACHE_KEY, JSON.stringify(cache));
+  }, [conversations, messages, selectedId]);
 
   useEffect(() => {
     async function loadUserList() {
@@ -63,7 +95,13 @@ export default function ChatInterface() {
           };
         });
 
-        setConversations(conversationList);
+        setConversations((previous) => {
+          const knownIds = new Set(conversationList.map((item) => item.id));
+          const cachedOnly = previous.filter(
+            (item) => !knownIds.has(item.id),
+          );
+          return [...conversationList, ...cachedOnly];
+        });
       } catch (error) {
         console.error("Không thể tải danh sách conversation:", error);
       }
@@ -264,6 +302,12 @@ export default function ChatInterface() {
       const targetType = isRoom ? "room" : "people";
       await sendChatMessage(targetType, selectedConversation.name, content);
     } catch (error) {
+      setMessages((prev) => ({
+        ...prev,
+        [selectedId]: (prev[selectedId] ?? []).filter(
+          (message) => message.id !== newMessage.id,
+        ),
+      }));
       console.error("Gửi tin nhắn qua Socket thất bại:", error);
     }
   }

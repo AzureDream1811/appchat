@@ -1,4 +1,5 @@
 import type {
+  PeopleChatHistory,
   PeopleChatMessages,
 } from "../types/chat";
 import type { HistoryPayload, SendChatPayload } from "../types/ws";
@@ -15,7 +16,10 @@ export async function sendChatMessage(
     mes: messageContent.trim(),
   };
 
-  await socket.send("SEND_CHAT", request);
+  const sent = await socket.send("SEND_CHAT", request);
+  if (!sent) {
+    throw new Error("Không thể gửi tin nhắn qua Socket.");
+  }
 }
 
 export async function getDirectChatMessages(
@@ -27,8 +31,14 @@ export async function getDirectChatMessages(
     page,
   };
 
-  return await socket.request<PeopleChatMessages>(
+  const response = await socket.request<PeopleChatMessages | PeopleChatHistory>(
     "GET_PEOPLE_CHAT_MES",
     request,
   );
+
+  if (Array.isArray(response)) {
+    return response;
+  }
+
+  return response.chatData ?? response.chatMess ?? [];
 }

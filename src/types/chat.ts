@@ -39,6 +39,11 @@ export interface PeopleChatMessage {
 
 export type PeopleChatMessages = PeopleChatMessage[];
 
+export interface PeopleChatHistory {
+  chatMess?: PeopleChatMessage[];
+  chatData?: PeopleChatMessage[];
+}
+
 export interface RoomMember {
   id: number;
   name: string;
