@@ -6,8 +6,11 @@ import EmptyChat from "./EmptyChat";
 import CreateGroupModal from "./CreateGroupModal";
 import { useAppSelector } from "../../hooks/useAppSelector";
 import { useChatActions } from "../../hooks/useChatActions";
+import { useChatListener } from "../../hooks/useChatListener";
 
 export default function ChatInterface() {
+  useChatListener();
+
   const user = useAppSelector((state) => state.auth.user);
   const {
     conversations,

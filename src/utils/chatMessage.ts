@@ -1,3 +1,5 @@
+import type { Conversation } from "../types/chat";
+
 let generatedMessageSequence = 0;
 
 const timeOptions: Intl.DateTimeFormatOptions = {
@@ -22,4 +24,17 @@ export function formatChatTime(value?: string): string {
   return Number.isNaN(date.getTime())
     ? value
     : date.toLocaleTimeString([], timeOptions);
+}
+
+export function createDirectConversation(username: string): Conversation {
+  return {
+    id: `user-${username}`,
+    name: username,
+    avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(username)}`,
+    type: "direct",
+    lastMessage: "",
+    lastMessageTime: "",
+    unreadCount: 0,
+    isOnline: false,
+  };
 }

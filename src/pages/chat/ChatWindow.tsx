@@ -3,7 +3,7 @@ import { Phone, Video, Info, Smile, Image, Paperclip, Send, X } from "lucide-rea
 import type { Conversation, Message } from "../../types/chat";
 import type { RoomMember } from "../../types/chat";
 
-interface ChatAreaProps {
+interface ChatWindowProps {
   conversation: Conversation;
   messages: Message[];
   onSendMessage: (content: string) => void;
@@ -19,7 +19,7 @@ interface ChatAreaProps {
   isLoadingMore?: boolean;
 }
 
-export default function ChatArea({
+export default function ChatWindow({
   conversation,
   messages,
   onSendMessage,
@@ -33,7 +33,7 @@ export default function ChatArea({
   onLoadMore,
   hasMore = false,
   isLoadingMore = false,
-}: ChatAreaProps) {
+}: ChatWindowProps) {
   const [inputText, setInputText] = useState("");
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const scrollBeforeLoadRef = useRef<{
