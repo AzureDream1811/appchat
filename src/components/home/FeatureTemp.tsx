@@ -1,9 +1,9 @@
 import {useRef} from "react"
 import {motion, useScroll, useTransform} from "framer-motion"
 // image for parallax
-import img_1 from "@/assets/img/Texting-bro.svg"
-import img_2 from "@/assets/img/Video call-pana.svg"
-import img_3 from "@/assets/img/Voice chat-pana.svg"
+import img_1 from "@/assets/Texting-bro.svg"
+import img_2 from "@/assets/Video call-pana.svg"
+import img_3 from "@/assets/Voice chat-pana.svg"
 
 const features = [
     {

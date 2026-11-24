@@ -2,7 +2,7 @@ import {useRef} from "react"
 import {motion, useScroll, useTransform} from "framer-motion"
 import {Button} from "../ui/Button"
 import {useNavigate} from "react-router-dom"
-import chatting_img from "@/assets/img/Chatting-rafiki.svg";
+import chatting_img from "@/assets/Chatting-rafiki.svg";
 
 
 export default function MainPage() {
