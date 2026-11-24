@@ -10,7 +10,7 @@ interface ConversationListProps {
   onSelectConversation: (id: string) => void;
   onOpenCreateGroup?: () => void;
   onStartDirectChat?: (username: string) => void;
-  onJoinRoom?: (roomName: string) => Promise<void>;
+  onJoinRoom?: (roomName: string) => Promise<boolean>;
 }
 
 export default function ConversationList({
@@ -81,7 +81,8 @@ export default function ConversationList({
     setResult(null);
 
     try {
-      await Promise.resolve(onJoinRoom?.(value));
+      const joined = await onJoinRoom?.(value);
+      if (!joined) return;
       setResult(`Đã tham gia phòng "${value}".`);
       setRoomName("");
     } catch {

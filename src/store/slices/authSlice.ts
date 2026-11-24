@@ -49,7 +49,6 @@ const authSlice = createSlice({
       state.isLoggedIn = false;
       localStorage.removeItem("user");
       localStorage.removeItem("reLoginCode");
-      localStorage.removeItem("appchat.chat-cache");
     },
   },
 });

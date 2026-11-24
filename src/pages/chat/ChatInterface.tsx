@@ -6,8 +6,11 @@ import EmptyChat from "./EmptyChat";
 import CreateGroupModal from "./CreateGroupModal";
 import { useAppSelector } from "../../hooks/useAppSelector";
 import { useChatActions } from "../../hooks/useChatActions";
+import { useChatListener } from "../../hooks/useChatListener";
 
 export default function ChatInterface() {
+  useChatListener();
+
   const user = useAppSelector((state) => state.auth.user);
   const {
     conversations,
@@ -56,6 +59,12 @@ export default function ChatInterface() {
   function handleStartDirectChat(username: string) {
     void startDirectChat(username).catch((error: unknown) => {
       console.error("Không thể mở cuộc trò chuyện:", error);
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Không thể mở cuộc trò chuyện. Vui lòng thử lại.",
+      );
     });
   }
 
@@ -85,12 +94,14 @@ export default function ChatInterface() {
     try {
       await enterRoom(groupName, "join");
       setIsCreateGroupOpen(false);
+      return true;
     } catch (error: unknown) {
       alert(
         error instanceof Error
           ? error.message
           : "Tham gia phòng thất bại! Phòng có thể không tồn tại.",
       );
+      return false;
     }
   }
 
@@ -122,6 +133,7 @@ export default function ChatInterface() {
 
       {selectedConversation ? (
         <ChatWindow
+          key={selectedConversation.id}
           conversation={selectedConversation}
           messages={currentMessages}
           onSendMessage={handleSendMessage}

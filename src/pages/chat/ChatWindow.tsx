@@ -3,7 +3,7 @@ import { Phone, Video, Info, Smile, Image, Paperclip, Send, X } from "lucide-rea
 import type { Conversation, Message } from "../../types/chat";
 import type { RoomMember } from "../../types/chat";
 
-interface ChatAreaProps {
+interface ChatWindowProps {
   conversation: Conversation;
   messages: Message[];
   onSendMessage: (content: string) => void;
@@ -19,7 +19,7 @@ interface ChatAreaProps {
   isLoadingMore?: boolean;
 }
 
-export default function ChatArea({
+export default function ChatWindow({
   conversation,
   messages,
   onSendMessage,
@@ -33,7 +33,7 @@ export default function ChatArea({
   onLoadMore,
   hasMore = false,
   isLoadingMore = false,
-}: ChatAreaProps) {
+}: ChatWindowProps) {
   const [inputText, setInputText] = useState("");
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const scrollBeforeLoadRef = useRef<{
@@ -42,6 +42,7 @@ export default function ChatArea({
     top: number;
   } | null>(null);
   const loadingMoreRef = useRef(false);
+  const initialScrollDoneRef = useRef<string | null>(null);
 
   useLayoutEffect(() => {
     const container = messagesContainerRef.current;
@@ -56,6 +57,14 @@ export default function ChatArea({
     }
 
     scrollBeforeLoadRef.current = null;
+
+    if (initialScrollDoneRef.current !== conversation.id) {
+      if (messages.length === 0) return;
+      initialScrollDoneRef.current = conversation.id;
+      container.scrollTop = container.scrollHeight;
+      return;
+    }
+
     container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
   }, [conversation.id, messages]);
 
@@ -116,6 +125,7 @@ export default function ChatArea({
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.nativeEvent.isComposing) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
