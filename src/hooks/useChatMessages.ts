@@ -13,6 +13,7 @@ import { getRoomChatMessages } from "../services/roomService";
 
 const CHAT_CACHE_KEY = "appchat.chat-cache";
 const HISTORY_PAGE_SIZE = 50;
+let generatedMessageSequence = 0;
 
 interface ConversationPagination {
   page: number;
@@ -26,10 +27,34 @@ interface ChatCache {
 
 function loadMessageCache(): ChatCache {
   try {
-    return JSON.parse(localStorage.getItem(CHAT_CACHE_KEY) ?? "{}") as ChatCache;
+    const cache = JSON.parse(localStorage.getItem(CHAT_CACHE_KEY) ?? "{}") as ChatCache;
+    if (!cache.messages) return cache;
+
+    const messages = Object.fromEntries(
+      Object.entries(cache.messages).map(([conversationId, conversationMessages]) => {
+        const seenIds = new Set<string>();
+        return [
+          conversationId,
+          conversationMessages.map((message) => {
+            const id = seenIds.has(message.id) ? createMessageId() : message.id;
+            seenIds.add(id);
+            return id === message.id ? message : { ...message, id };
+          }),
+        ];
+      }),
+    );
+
+    return { ...cache, messages };
   } catch {
     return {};
   }
+}
+
+function createMessageId(serverId?: number): string {
+  if (serverId !== undefined && Number.isSafeInteger(serverId) && serverId > 0) {
+    return `msg-${serverId}`;
+  }
+  return `msg-local-${Date.now()}-${generatedMessageSequence++}`;
 }
 
 export function useChatMessages(
@@ -77,7 +102,7 @@ export function useChatMessages(
       setMessages((previous) => ({
         ...previous,
         [conversationId]: [...(previous[conversationId] ?? []), {
-          id: `msg-${data.id}`,
+          id: createMessageId(data.id),
           conversationId,
           senderName: data.name,
           content: data.mes,
@@ -116,7 +141,7 @@ export function useChatMessages(
     setMessages((previous) => ({
       ...previous,
       [conversation.id]: history.map((message) => ({
-        id: `msg-${message.id}`,
+        id: createMessageId(message.id),
         conversationId: conversation.id,
         senderName: message.name,
         content: message.mes,
@@ -167,7 +192,7 @@ export function useChatMessages(
       } else {
         const history = await getDirectChatMessages(conversation.name, nextPage);
         const olderMessages = history.map((message) => ({
-          id: `msg-${message.id}`,
+          id: createMessageId(message.id),
           conversationId,
           senderName: message.name,
           content: message.mes,
@@ -196,7 +221,7 @@ export function useChatMessages(
     if (!selectedId || !selectedConversation) return;
 
     const optimisticMessage: Message = {
-      id: `msg-${Date.now()}`,
+      id: createMessageId(),
       conversationId: selectedId,
       senderName: myName,
       content,
@@ -291,7 +316,7 @@ function mapRoomMessage(
   myName: string,
 ): Message {
   return {
-    id: `msg-${message.id}`,
+    id: createMessageId(message.id),
     conversationId,
     senderName: message.name,
     content: message.mes,
