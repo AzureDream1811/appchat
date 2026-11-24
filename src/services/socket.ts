@@ -1,11 +1,6 @@
-import type {
-  ChatEvent,
-  WsRequest,
-  WsResponse,
-} from "../types/ws";
+import type { ChatEvent, WsRequest, WsResponse } from "../types/ws";
 
-const SOCKET_URL =
-  import.meta.env.VITE_WEBSOCKET_URL ?? "wss://chat.longapp.io.vn/chat/chat";
+const SOCKET_URL = "wss://chat.longapp.io.vn/chat/chat";
 const REQUEST_TIMEOUT = 10_000;
 
 type SocketListener = (response: WsResponse<unknown>) => void;
@@ -22,20 +17,11 @@ class SocketService {
   private listeners = new Set<SocketListener>();
   private connecting: Promise<void> | null = null;
   private pendingRequests = new Set<PendingRequest>();
-  private authenticated = false;
-  private reloginPromise: Promise<void> | null = null;
 
-  isAuthenticated(): boolean {
-    return this.authenticated && this.ws?.readyState === WebSocket.OPEN;
-  }
-
+  // Connect to the WebSocket server
   connect(): Promise<void> {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      return Promise.resolve();
-    }
-    if (this.connecting) {
-      return this.connecting;
-    }
+    if (this.ws?.readyState === WebSocket.OPEN) return Promise.resolve();
+    if (this.connecting) return this.connecting;
 
     this.connecting = new Promise<void>((resolve, reject) => {
       const ws = new WebSocket(SOCKET_URL);
@@ -45,78 +31,65 @@ class SocketService {
         this.connecting = null;
         resolve();
       };
-
       ws.onerror = () => {
         this.connecting = null;
         reject(new Error("WebSocket connection error."));
       };
-
-      ws.onmessage = (event) => {
-        let response: WsResponse<unknown>;
-
-        try {
-          response = JSON.parse(String(event.data)) as WsResponse<unknown>;
-        } catch {
-          console.error("Invalid WebSocket JSON response.");
-          return;
-        }
-
-        for (const listener of this.listeners) {
-          listener(response);
-        }
-
-        if (response.event === "AUTH" && response.status === "error") {
-          this.authenticated = false;
-          const error = new Error(response.mes || "Authentication failed.");
-          for (const pending of this.pendingRequests) {
-            window.clearTimeout(pending.timeoutId);
-            pending.reject(error);
-          }
-          this.pendingRequests.clear();
-          return;
-        }
-
-        const request = [...this.pendingRequests].find(
-          (pending) => pending.event === response.event,
-        );
-
-        if (request) {
-          window.clearTimeout(request.timeoutId);
-          this.pendingRequests.delete(request);
-
-          if (response.status === "error") {
-            request.reject(new Error(response.mes || "Request failed."));
-          } else {
-            if (response.event === "LOGIN" || response.event === "RE_LOGIN") {
-              this.authenticated = true;
-            } else if (response.event === "LOGOUT") {
-              this.authenticated = false;
-            }
-            request.resolve(response.data);
-          }
-        }
-      };
-
-      ws.onclose = () => {
-        if (this.ws !== ws) return;
-
-        this.ws = null;
-        this.connecting = null;
-        this.authenticated = false;
-
-        for (const request of this.pendingRequests) {
-          window.clearTimeout(request.timeoutId);
-          request.reject(new Error("WebSocket connection closed."));
-        }
-        this.pendingRequests.clear();
-      };
+      ws.onmessage = (e) => this.handleMessage(e);
+      ws.onclose = () => this.handleClose(ws);
     });
 
     return this.connecting;
   }
 
+  // Handle incoming WebSocket messages by parsing the JSON and notifying listeners
+  // resolve/reject pending requests based on the event type and status
+  private handleMessage(event: MessageEvent): void {
+    let res: WsResponse<unknown>;
+
+    try {
+      res = JSON.parse(String(event.data)) as WsResponse<unknown>;
+    } catch {
+      console.error("Invalid WebSocket JSON response.");
+      return;
+    }
+
+    this.listeners.forEach((listener) => listener(res));
+
+    const pending = [...this.pendingRequests].find(
+      (p) => p.event === res.event,
+    );
+    if (!pending) return;
+
+    window.clearTimeout(pending.timeoutId);
+    this.pendingRequests.delete(pending);
+
+    if (res.status === "error") {
+      pending.reject(new Error(res.mes || "Request failed."));
+    } else {
+      pending.resolve(res.data);
+    }
+  }
+
+  // Handle WebSocket close event
+  private handleClose(ws: WebSocket): void {
+    if (this.ws !== ws) return;
+    this.ws = null;
+    this.connecting = null;
+    this.rejectAllPending(new Error("WebSocket connection closed."));
+  }
+
+  // Reject all pending requests with the provided error
+  private rejectAllPending(error: Error): void {
+    for (const p of this.pendingRequests) {
+      window.clearTimeout(p.timeoutId);
+      p.reject(error);
+    }
+    this.pendingRequests.clear();
+  }
+
+  // Send a message to the WebSocket server
   async send<T>(event: ChatEvent, data?: T): Promise<boolean> {
-    await this.ensureAuthenticated(event);
     await this.connect();
 
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
@@ -132,8 +105,8 @@ class SocketService {
     return true;
   }
 
+  // Request a response from the WebSocket server
   async request<T>(event: ChatEvent, data?: unknown): Promise<T> {
-    await this.ensureAuthenticated(event);
     await this.connect();
 
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
@@ -159,50 +132,30 @@ class SocketService {
       }, REQUEST_TIMEOUT);
 
       this.pendingRequests.add(pendingRequest);
-      this.ws?.send(JSON.stringify(message));
+
+      try{
+        this.ws?.send(JSON.stringify(message));
+      } catch (error) {
+        console.error("Failed to send WebSocket request:", error);
+        this.pendingRequests.delete(pendingRequest);
+        window.clearTimeout(pendingRequest.timeoutId);
+        reject(new Error("Failed to send WebSocket request."));
+      }
     });
   }
 
+  // Subscribe to WebSocket messages
   subscribe(listener: SocketListener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
   }
 
+  // Disconnect from the WebSocket server
   disconnect(): void {
     this.ws?.close();
     this.ws = null;
     this.connecting = null;
-    this.authenticated = false;
-  }
-
-  private async ensureAuthenticated(event: ChatEvent): Promise<void> {
-    if (
-      event === "REGISTER" ||
-      event === "LOGIN" ||
-      event === "RE_LOGIN" ||
-      event === "LOGOUT" ||
-      this.isAuthenticated()
-    ) {
-      return;
-    }
-
-    if (this.reloginPromise) {
-      return this.reloginPromise;
-    }
-
-    const user = localStorage.getItem("user");
-    const code = localStorage.getItem("reLoginCode");
-    if (!user || !code) {
-      throw new Error("You must log in before continuing.");
-    }
-
-    this.reloginPromise = this.request("RE_LOGIN", { user, code })
-      .then(() => undefined)
-      .finally(() => {
-        this.reloginPromise = null;
-      });
-
-    return this.reloginPromise;
+    this.rejectAllPending(new Error("WebSocket disconnected."));
   }
 }
 
