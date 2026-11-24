@@ -18,26 +18,46 @@ export function useChatListener() {
     if (!username) return;
 
     return socket.subscribe((res) => {
-      if (res.event !== "SEND_CHAT" || res.status !== "success") return;
+        if (res.event !== "SEND_CHAT" || res.status !== "success") return;
+        
+        const data = res.data as ReceivedChatMessage;
+        console.log(res.data)
+      if (data.name === username) return;
 
-      const data = res.data as ReceivedChatMessage;
-      if (data.type !== 0 || data.name === username) return;
-
-      const conversationId = `user-${data.name}`;
-      dispatch(
-        messageAdded({
-          conversationId,
-          conversation: createDirectConversation(data.name),
-          message: {
-            id: createMessageId(data.id),
+      if (data.type === 0) {
+        const conversationId = `user-${data.name}`;
+        dispatch(
+          messageAdded({
             conversationId,
-            senderName: data.name,
-            content: data.mes,
-            createdAt: formatChatTime(data.createAt),
-            isMe: false,
-          },
-        }),
-      );
+            conversation: createDirectConversation(data.name),
+            message: {
+              id: createMessageId(data.id),
+              conversationId,
+              senderName: data.name,
+              content: data.mes,
+              createdAt: formatChatTime(data.createAt),
+              isMe: false,
+            },
+          }),
+        );
+      }
+
+      if (data.type === 1) {
+        const conversationId = `room-${data.to}`;
+        dispatch(
+          messageAdded({
+            conversationId,
+            message: {
+              id: createMessageId(data.id),
+              conversationId,
+              senderName: data.name,
+              content: data.mes,
+              createdAt: formatChatTime(data.createAt),
+              isMe: false,
+            },
+          }),
+        );
+      }
     });
   }, [dispatch, username]);
 }
