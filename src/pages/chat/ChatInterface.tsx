@@ -1,71 +1,51 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Header from "../common/Header";
 import SideBar from "./SideBar";
 import ChatWindow from "./ChatWindow";
 import EmptyChat from "./EmptyChat";
 import CreateGroupModal from "./CreateGroupModal";
 import { useAppSelector } from "../../hooks/useAppSelector";
-import { useChatConversations } from "../../hooks/useChatConversations";
-import { useChatMessages } from "../../hooks/useChatMessages";
-import { useChatRooms } from "../../hooks/useChatRooms";
+import { useChatActions } from "../../hooks/useChatActions";
 
 export default function ChatInterface() {
   const user = useAppSelector((state) => state.auth.user);
-  const myName = user ?? "Tôi";
-  const [activeTab, setActiveTab] = useState("messages");
-
   const {
     conversations,
     selectedId,
-    selectedConversation,
-    setSelectedId,
-    updateConversation,
-    removeConversation,
-    addOrUpdateConversation,
-    startDirectChat,
-  } = useChatConversations(user);
-
-  const {
-    currentMessages,
+    messages,
     roomMembers,
-    hasMoreMessages,
+    pagination,
     isLoadingMore,
-    setRoomHistory,
-    ensureDirectConversation,
-    selectConversation,
-    loadMoreMessages,
-    sendMessage,
-    removeConversation: removeMessageConversation,
-  } = useChatMessages(myName, selectedId, selectedConversation);
+  } = useAppSelector((state) => state.chat);
+  const selectedConversation = conversations.find(
+    (conversation) => conversation.id === selectedId,
+  );
+  const [activeTab, setActiveTab] = useState("messages");
+  const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
+  const [isRoomInfoOpen, setIsRoomInfoOpen] = useState(false);
 
   const {
-    isCreateGroupOpen,
-    setIsCreateGroupOpen,
+    enterRoom,
     isCreatingRoom,
     isJoiningRoom,
     isLeavingRoom,
-    isRoomInfoOpen,
-    setIsRoomInfoOpen,
-    createGroup,
-    joinGroup,
     leaveRoom,
-  } = useChatRooms({
-    addOrUpdateConversation,
-    removeConversation,
-    setSelectedId,
-    setRoomHistory,
-    removeMessageConversation,
-    selectedConversation,
-  });
+    loadConversations,
+    loadMoreMessages,
+    selectConversation,
+    sendMessage,
+    startDirectChat,
+  } = useChatActions();
+
+  useEffect(() => {
+    if (user) void loadConversations(user);
+  }, [loadConversations, user]);
 
   async function handleSelectConversation(conversationId: string) {
-    setSelectedId(conversationId);
-    setIsRoomInfoOpen(false);
-    updateConversation(conversationId, { unreadCount: 0 });
-
     const conversation = conversations.find((item) => item.id === conversationId);
     if (!conversation) return;
 
+    setIsRoomInfoOpen(false);
     try {
       await selectConversation(conversation);
     } catch (error) {
@@ -74,13 +54,15 @@ export default function ChatInterface() {
   }
 
   function handleStartDirectChat(username: string) {
-    startDirectChat(username);
-    ensureDirectConversation(`user-${username}`);
+    void startDirectChat(username).catch((error: unknown) => {
+      console.error("Không thể mở cuộc trò chuyện:", error);
+    });
   }
 
   async function handleSendMessage(content: string) {
+    if (!selectedConversation) return;
     try {
-      await sendMessage(content);
+      await sendMessage(selectedConversation, content);
     } catch (error) {
       console.error("Gửi tin nhắn qua Socket thất bại:", error);
     }
@@ -88,8 +70,9 @@ export default function ChatInterface() {
 
   async function handleCreateGroup(groupName: string) {
     try {
-      await createGroup(groupName);
-    } catch (error) {
+      await enterRoom(groupName, "create");
+      setIsCreateGroupOpen(false);
+    } catch (error: unknown) {
       alert(
         error instanceof Error
           ? error.message
@@ -100,8 +83,9 @@ export default function ChatInterface() {
 
   async function handleJoinGroup(groupName: string) {
     try {
-      await joinGroup(groupName);
-    } catch (error) {
+      await enterRoom(groupName, "join");
+      setIsCreateGroupOpen(false);
+    } catch (error: unknown) {
       alert(
         error instanceof Error
           ? error.message
@@ -111,12 +95,17 @@ export default function ChatInterface() {
   }
 
   async function handleLeaveRoom() {
+    if (!selectedConversation) return;
     try {
-      await leaveRoom();
+      if (await leaveRoom(selectedConversation)) setIsRoomInfoOpen(false);
     } catch (error) {
       alert(error instanceof Error ? error.message : "Không thể rời phòng.");
     }
   }
+
+  const currentMessages = selectedId ? messages[selectedId] ?? [] : [];
+  const currentPagination = selectedId ? pagination[selectedId] : undefined;
+  const currentRoomMembers = selectedId ? roomMembers[selectedId] ?? [] : [];
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-white select-none">
@@ -142,17 +131,13 @@ export default function ChatInterface() {
             }
           }}
           isInfoOpen={isRoomInfoOpen}
-          roomMembers={
-            selectedConversation.type === "group"
-              ? roomMembers[selectedConversation.name] ?? []
-              : []
-          }
+          roomMembers={currentRoomMembers}
           onCloseInfo={() => setIsRoomInfoOpen(false)}
           onLeaveRoom={handleLeaveRoom}
           isLeavingRoom={isLeavingRoom}
           canLeaveRoom={true}
           onLoadMore={loadMoreMessages}
-          hasMore={hasMoreMessages}
+          hasMore={currentPagination?.hasMore ?? false}
           isLoadingMore={isLoadingMore}
         />
       ) : (
