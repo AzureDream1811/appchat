@@ -1,23 +1,19 @@
 import type {
-  CreateRoomRequestDto,
-  CreateRoomResponseDataDto,
-  GetRoomChatMessagesRequestDto,
-  GetRoomChatMessagesResponseDataDto,
-  JoinRoomRequestDto,
-  JoinRoomResponseDataDto,
-  OutRoomRequestDto,
-  OutRoomResponseDataDto,
+  RoomResponse,
+  RoomChatHistory,
+  OutRoomResponse,
 } from "../types/chat";
+import type { HistoryPayload, RoomNamePayload } from "../types/ws";
 import { socket } from "./socket";
 
 export async function createRoom(
   roomName: string,
-): Promise<CreateRoomResponseDataDto> {
-  const request: CreateRoomRequestDto = {
+): Promise<RoomResponse> {
+  const request: RoomNamePayload = {
     name: roomName.trim(),
   };
 
-  return await socket.request<CreateRoomResponseDataDto>(
+  return await socket.request<RoomResponse>(
     "CREATE_ROOM",
     request,
   );
@@ -25,34 +21,34 @@ export async function createRoom(
 
 export async function joinRoom(
   roomName: string,
-): Promise<JoinRoomResponseDataDto> {
-  const request: JoinRoomRequestDto = {
+): Promise<RoomResponse> {
+  const request: RoomNamePayload = {
     name: roomName.trim(),
   };
 
-  return await socket.request<JoinRoomResponseDataDto>("JOIN_ROOM", request);
+  return await socket.request<RoomResponse>("JOIN_ROOM", request);
 }
 
 export async function outRoom(
   roomName: string,
-): Promise<OutRoomResponseDataDto> {
-  const request: OutRoomRequestDto = {
+): Promise<OutRoomResponse> {
+  const request: RoomNamePayload = {
     name: roomName.trim(),
   };
 
-  return await socket.request<OutRoomResponseDataDto>("OUT_ROOM", request);
+  return await socket.request<OutRoomResponse>("OUT_ROOM", request);
 }
 
 export async function getRoomChatMessages(
   roomName: string,
   page = 1,
-): Promise<GetRoomChatMessagesResponseDataDto> {
-  const request: GetRoomChatMessagesRequestDto = {
+): Promise<RoomChatHistory> {
+  const request: HistoryPayload = {
     name: roomName.trim(),
     page,
   };
 
-  return await socket.request<GetRoomChatMessagesResponseDataDto>(
+  return await socket.request<RoomChatHistory>(
     "GET_ROOM_CHAT_MES",
     request,
   );

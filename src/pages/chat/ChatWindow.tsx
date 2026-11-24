@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Phone, Video, Info, Smile, Image, Paperclip, Send, X } from "lucide-react";
 import type { Conversation, Message } from "../../types/chat";
-import type { RoomMemberDto } from "../../types/chat";
+import type { RoomMember } from "../../types/chat";
 
 interface ChatAreaProps {
   conversation: Conversation;
@@ -9,7 +9,7 @@ interface ChatAreaProps {
   onSendMessage: (content: string) => void;
   onToggleInfo?: () => void;
   isInfoOpen?: boolean;
-  roomMembers?: RoomMemberDto[];
+  roomMembers?: RoomMember[];
   onCloseInfo?: () => void;
   onLeaveRoom?: () => void;
   isLeavingRoom?: boolean;

@@ -1,8 +1,7 @@
 import type {
-  GetPeopleChatMessagesRequestDto,
-  GetPeopleChatMessagesResponseDto,
-  SendChatRequestDto,
+  PeopleChatMessages,
 } from "../types/chat";
+import type { HistoryPayload, SendChatPayload } from "../types/ws";
 import { socket } from "./socket";
 
 export async function sendChatMessage(
@@ -10,7 +9,7 @@ export async function sendChatMessage(
   targetName: string,
   messageContent: string
 ): Promise<void> {
-  const request: SendChatRequestDto = {
+  const request: SendChatPayload = {
     type,
     to: targetName,
     mes: messageContent.trim(),
@@ -22,13 +21,13 @@ export async function sendChatMessage(
 export async function getPeopleChatMessages(
   username: string,
   page = 1,
-): Promise<GetPeopleChatMessagesResponseDto> {
-  const request: GetPeopleChatMessagesRequestDto = {
+): Promise<PeopleChatMessages> {
+  const request: HistoryPayload = {
     name: username,
     page,
   };
 
-  return await socket.request<GetPeopleChatMessagesResponseDto>(
+  return await socket.request<PeopleChatMessages>(
     "GET_PEOPLE_CHAT_MES",
     request,
   );

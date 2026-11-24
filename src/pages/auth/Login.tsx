@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAppDispatch } from "../../hooks/useAppDispatch";
 import { setSession } from "../../store/slices/authSlice";
 import { socket } from "../../services/socket";
-import type { LoginResponseDataDto } from "../../types/auth";
+import type { LoginResponse } from "../../types/auth";
 
 export default function LoginPage() {
   const dispatch = useAppDispatch();
@@ -18,7 +18,7 @@ export default function LoginPage() {
     setError(null);
     setIsSubmitting(true);
 
-    void socket.request<LoginResponseDataDto>("LOGIN", { user: username, pass: password })
+    void socket.request<LoginResponse>("LOGIN", { user: username, pass: password })
       .then((result) => {
         dispatch(setSession({ user: username, reLoginCode: result.RE_LOGIN_CODE }));
         navigate("/chat");

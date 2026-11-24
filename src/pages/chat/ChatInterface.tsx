@@ -3,7 +3,7 @@ import Header from "../common/Header";
 import SideBar from "./SideBar";
 import ChatWindow from "./ChatWindow";
 import EmptyChat from "./EmptyChat";
-import type { Message, ReceiveChatMessageDto } from "../../types/chat";
+import type { Message, ReceivedChatMessage } from "../../types/chat";
 import { useAppSelector } from "../../hooks/useAppSelector";
 import CreateGroupModal from "./CreateGroupModal";
 import {
@@ -13,7 +13,7 @@ import {
   outRoom,
 } from "../../services/roomService";
 import type { Conversation } from "../../types/chat";
-import type { RoomMemberDto } from "../../types/chat";
+import type { RoomMember } from "../../types/chat";
 import { useEffect } from "react";
 import {
   getPeopleChatMessages,
@@ -36,7 +36,7 @@ export default function ChatInterface() {
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
 
-  const [roomMembers, setRoomMembers] = useState<Record<string, RoomMemberDto[]>>({});
+  const [roomMembers, setRoomMembers] = useState<Record<string, RoomMember[]>>({});
   const [isRoomInfoOpen, setIsRoomInfoOpen] = useState(false);
   const [isLeavingRoom, setIsLeavingRoom] = useState(false);
 
@@ -75,7 +75,7 @@ export default function ChatInterface() {
   useEffect(() => {
     const unsubscribe = socket.subscribe((response: WsResponse<unknown>) => {
       if (response.event === "SEND_CHAT" && response.status === "success") {
-        const data = response.data as ReceiveChatMessageDto | undefined;
+        const data = response.data as ReceivedChatMessage | undefined;
         if (!data) return;
         if (data.name === myName) return;
         const isRoom = data.type === 1;

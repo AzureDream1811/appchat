@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Outlet } from "react-router-dom";
 import { useAppDispatch } from "./hooks/useAppDispatch";
 import { socket } from "./services/socket";
-import type { LoginResponseDataDto } from "./types/auth";
+import type { LoginResponse } from "./types/auth";
 import type { WsResponse } from "./types/ws";
 import { clearSession, setSession } from "./store/slices/authSlice";
 
@@ -31,7 +31,7 @@ export default function App() {
 
         if (username && reLoginCode) {
           try {
-            const result = await socket.request<LoginResponseDataDto>(
+            const result = await socket.request<LoginResponse>(
               "RE_LOGIN",
               { user: username, code: reLoginCode },
             );

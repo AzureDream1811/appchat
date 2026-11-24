@@ -19,13 +19,7 @@ export interface Conversation {
   isOnline?: boolean;     
 }
 
-export interface SendChatRequestDto {
-  type: "room" | "people";
-  to: string;
-  mes: string;
-}
-
-export interface ReceiveChatMessageDto {
+export interface ReceivedChatMessage {
   id: number;
   name: string;
   to: string;
@@ -34,14 +28,7 @@ export interface ReceiveChatMessageDto {
   type: number;
 }
 
-export interface GetChatMessagesRequestDto {
-  name: string;
-  page: number;
-}
-
-export type GetPeopleChatMessagesRequestDto = GetChatMessagesRequestDto;
-
-export interface PeopleChatMessageDto {
+export interface PeopleChatMessage {
   id: number;
   name: string;
   to: string;
@@ -50,26 +37,14 @@ export interface PeopleChatMessageDto {
   type: 0;
 }
 
-export type GetPeopleChatMessagesResponseDto = PeopleChatMessageDto[];
+export type PeopleChatMessages = PeopleChatMessage[];
 
-export interface CreateRoomRequestDto {
-  name: string;
-}
-
-export interface JoinRoomRequestDto {
-  name: string;
-}
-
-export interface OutRoomRequestDto {
-  name: string;
-}
-
-export interface RoomMemberDto {
+export interface RoomMember {
   id: number;
   name: string;
 }
 
-export interface RoomChatMessageDto {
+export interface RoomChatMessage {
   id: number;
   name: string;
   to: string;
@@ -78,42 +53,34 @@ export interface RoomChatMessageDto {
   type: number;
 }
 
-export interface CreateRoomResponseDataDto {
+export interface RoomResponse {
   id?: number;
   name: string;
   own?: string;
   createTime?: string;
-  user?: RoomMemberDto[];
-  userList?: RoomMemberDto[];
-  chatMess?: RoomChatMessageDto[];
-  chatData?: RoomChatMessageDto[];
+  user?: RoomMember[];
+  userList?: RoomMember[];
+  chatMess?: RoomChatMessage[];
+  chatData?: RoomChatMessage[];
 }
 
-export type JoinRoomResponseDataDto = CreateRoomResponseDataDto;
-
-export type GetRoomChatMessagesRequestDto = GetChatMessagesRequestDto;
-
-export interface GetRoomChatMessagesResponseDataDto {
+export interface RoomChatHistory {
   name: string;
   own?: string;
-  user?: RoomMemberDto[];
-  userList?: RoomMemberDto[];
-  chatMess?: RoomChatMessageDto[];
-  chatData?: RoomChatMessageDto[];
+  user?: RoomMember[];
+  userList?: RoomMember[];
+  chatMess?: RoomChatMessage[];
+  chatData?: RoomChatMessage[];
 }
 
-export interface OutRoomResponseDataDto {
+export interface OutRoomResponse {
   mes: string;
 }
 
-export interface GetUserListItemDto {
+export interface UserListItem {
   name: string;
   type: 0 | 1;
   actionTime: string;
 }
 
-export interface CheckUserExistResponseDto {
-  status: boolean;
-}
-
-export type GetUserListResponseDataDto = GetUserListItemDto[];
+export type UserList = UserListItem[];
