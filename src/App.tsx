@@ -12,6 +12,7 @@ export default function App() {
 
   useEffect(() => {
     const unsubscribe = socket.subscribe((response) => {
+      console.log("WS IN:", response);
       if (response.event === "AUTH" && response.status === "error") {
         dispatch(clearSession());
       }

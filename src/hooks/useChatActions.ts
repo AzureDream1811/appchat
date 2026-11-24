@@ -40,14 +40,16 @@ function mapHistory(
   conversationId: string,
   username: string,
 ): Message[] {
-  return [...history].reverse().map((message) => ({
-    id: createMessageId(message.id),
-    conversationId,
-    senderName: message.name,
-    content: message.mes,
-    createdAt: formatChatTime(message.createAt),
-    isMe: message.name === username,
-  }));
+  return [...history]
+    .sort((a, b) => a.id - b.id)
+    .map((message) => ({
+      id: createMessageId(message.id),
+      conversationId,
+      senderName: message.name,
+      content: message.mes,
+      createdAt: formatChatTime(message.createAt),
+      isMe: message.name === username,
+    }));
 }
 
 export function useChatActions() {
