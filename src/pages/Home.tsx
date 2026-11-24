@@ -1,12 +1,12 @@
-import NavBar from "../home/NavBar";
-import MainPage from "../home/MainPage";
-import Footer from "../home/Footer";
-import FeatureTemp from "../home/FeatureTemp";
+import HeaderHome from "./common/HeaderHome";
+import MainPage from "../components/home/MainPage";
+import Footer from "../components/home/Footer";
+import FeatureTemp from "../components/home/FeatureTemp";
 
 export default function Home() {
     return (
         <div className="min-h-screen w-full flex flex-col font-sans antialiased bg-white ">
-            <NavBar />
+            <HeaderHome />
             <MainPage/>
             <FeatureTemp/>
             <Footer/>

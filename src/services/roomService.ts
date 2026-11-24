@@ -7,8 +7,8 @@ import type {
   JoinRoomResponseDataDto,
   OutRoomRequestDto,
   OutRoomResponseDataDto,
-} from "../api/events/roomApi";
-import { sendSocketMessage } from "../api/websocketClient";
+} from "../types/chat";
+import { sendSocketMessage } from "./socket";
 
 export async function createRoom(
   roomName: string,

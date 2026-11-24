@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Phone, Video, Info, Smile, Image, Paperclip, Send, X } from "lucide-react";
 import type { Conversation, Message } from "../../types/chat";
-import type { RoomMemberDto } from "../../api/events/roomApi";
+import type { RoomMemberDto } from "../../types/chat";
 
 interface ChatAreaProps {
   conversation: Conversation;

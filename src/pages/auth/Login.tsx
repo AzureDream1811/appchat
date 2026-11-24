@@ -1,7 +1,8 @@
 import { useState, type SyntheticEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAppDispatch, useAppSelector } from "../hooks/redux";
-import { clearAuthError, login } from "../state/authSlice";
+import { useAppDispatch } from "../../hooks/useAppDispatch";
+import { useAppSelector } from "../../hooks/useAppSelector";
+import { clearAuthError, login } from "../../store/slices/authSlice";
 
 export default function LoginPage() {
   const dispatch = useAppDispatch();

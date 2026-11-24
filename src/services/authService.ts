@@ -6,11 +6,11 @@ import type {
   ReLoginResponseDataDto,
   RegisterRequestDto,
   RegisterResponseDataDto,
-} from "../api/events/authApi";
+} from "../types/auth";
 import {
   disconnectSocket,
   sendSocketMessage,
-} from "../api/websocketClient";
+} from "./socket";
 
 export async function register(
   username: string,

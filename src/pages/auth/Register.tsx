@@ -1,7 +1,8 @@
 import { useState, type SyntheticEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAppDispatch, useAppSelector } from "../../hooks/redux";
-import { clearAuthError, register } from "../../state/authSlice";
+import { useAppDispatch } from "../../hooks/useAppDispatch";
+import { useAppSelector } from "../../hooks/useAppSelector";
+import { clearAuthError, register } from "../../store/slices/authSlice";
 
 export default function Register() {
   const dispatch = useAppDispatch();

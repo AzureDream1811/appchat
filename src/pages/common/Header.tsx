@@ -1,7 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { MessageSquare, Users, CheckSquare, Settings, LogOut } from "lucide-react";
-import { useAppDispatch, useAppSelector } from "../../hooks/redux";
-import { logout } from "../../state/authSlice";
+import { useAppDispatch } from "../../hooks/useAppDispatch";
+import { useAppSelector } from "../../hooks/useAppSelector";
+import { logout } from "../../store/slices/authSlice";
 
 interface SidebarNavProps {
   activeTab?: string;

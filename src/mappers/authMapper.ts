@@ -1,7 +1,7 @@
 import type {
   LoginResponseDataDto,
   ReLoginResponseDataDto,
-} from "../api/events/authApi";
+} from "../types/auth";
 import type { AuthSession } from "../domain/auth/AuthSession";
 
 export function mapLoginResponseToSession(

@@ -2,11 +2,11 @@ import type {
   GetPeopleChatMessagesRequestDto,
   GetPeopleChatMessagesResponseDto,
   SendChatRequestDto,
-} from "../api/events/messageApi";
+} from "../types/chat";
 import {
   sendSocketEvent,
   sendSocketMessage,
-} from "../api/websocketClient";
+} from "./socket";
 
 export async function sendChatMessage(
   type: "room" | "people",

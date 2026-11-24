@@ -1,5 +1,5 @@
-import type { CheckUserExistResponseDto, GetUserListResponseDataDto } from "../api/events/userApi";
-import { sendSocketMessage } from "../api/websocketClient";
+import type { CheckUserExistResponseDto, GetUserListResponseDataDto } from "../types/chat";
+import { sendSocketMessage } from "./socket";
 
 export async function checkUserExist(username: string): Promise<boolean> {
   const requestData = { user: username };

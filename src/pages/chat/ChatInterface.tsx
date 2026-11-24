@@ -1,28 +1,28 @@
 import { useState } from "react";
-import SidebarNav from "../components/chat/SidebarNav";
-import ConversationList from "../components/chat/ConversationList";
-import ChatArea from "../components/chat/ChatArea";
-import EmptyChat from "../components/chat/EmptyChat";
-import type { Message } from "../types/chat";
-import { useAppSelector } from "../hooks/redux";
-import CreateGroupModal from "../components/chat/CreateGroupModal";
+import Header from "../common/Header";
+import SideBar from "./SideBar";
+import ChatWindow from "./ChatWindow";
+import EmptyChat from "./EmptyChat";
+import type { Message } from "../../types/chat";
+import { useAppSelector } from "../../hooks/useAppSelector";
+import CreateGroupModal from "./CreateGroupModal";
 import {
   createRoom,
   getRoomChatMessages,
   joinRoom,
   outRoom,
-} from "../services/roomService";
-import type { Conversation } from "../types/chat";
-import type { RoomMemberDto } from "../api/events/roomApi";
+} from "../../services/roomService";
+import type { Conversation } from "../../types/chat";
+import type { RoomMemberDto } from "../../types/chat";
 import { useEffect } from "react";
 import {
   getPeopleChatMessages,
   sendChatMessage,
-} from "../services/messageService";
-import { getUserList } from "../services/userService";
-import { subscribeSocketEvent } from "../api/websocketClient";
+} from "../../services/messageService";
+import { getUserList } from "../../services/userService";
+import { subscribeSocketEvent } from "../../services/socket";
 
-export default function ChatPage() {
+export default function ChatInterface() {
   const session = useAppSelector((state) => state.auth.session);
   const myName = session?.username ?? "Tôi";
   const [activeTab, setActiveTab] = useState("messages");
@@ -417,9 +417,9 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-white select-none">
-      <SidebarNav activeTab={activeTab} onTabChange={setActiveTab} />
+      <Header activeTab={activeTab} onTabChange={setActiveTab} />
 
-      <ConversationList
+      <SideBar
         conversations={conversations}
         selectedId={selectedId}
         onSelectConversation={handleSelectConversation}
@@ -430,7 +430,7 @@ export default function ChatPage() {
       />
 
       {selectedConversation ? (
-        <ChatArea
+        <ChatWindow
           conversation={selectedConversation}
           messages={currentMessages}
           onSendMessage={handleSendMessage}

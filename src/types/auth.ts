@@ -1,3 +1,8 @@
+export interface AuthCredentials {
+  username: string;
+  password: string;
+}
+
 export interface RegisterRequestDto {
   user: string;
   pass: string;
@@ -20,5 +25,4 @@ export interface ReLoginRequestDto {
 }
 
 export type ReLoginResponseDataDto = LoginResponseDataDto;
-
 export type LogoutResponseDto = string;

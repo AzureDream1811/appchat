@@ -3,17 +3,17 @@ import {
   createSlice,
   type PayloadAction,
 } from "@reduxjs/toolkit";
-import type { AuthSession } from "../domain/auth/AuthSession";
+import type { AuthSession } from "../../domain/auth/AuthSession";
 import {
   mapLoginResponseToSession,
   mapReLoginResponseToSession,
-} from "../mappers/authMapper";
+} from "../../mappers/authMapper";
 import {
   login as loginUser,
   logout as logoutUser,
   relogin as reloginUser,
   register as registerUser,
-} from "../services/authService";
+} from "../../services/authService";
 
 export type AuthStatus =
   | "idle"

@@ -1,7 +1,8 @@
 import { useState, type SyntheticEvent } from "react";
-import { Search, Users } from "lucide-react";
+import { Users } from "lucide-react";
 import type { Conversation } from "../../types/chat";
 import { checkUserExist } from "../../services/userService";
+import SearchBar from "./SearchBar";
 
 interface ConversationListProps {
   conversations: Conversation[];
@@ -95,16 +96,11 @@ export default function ConversationList({
 
       {/* Header: Search, UserPlus, Users */}
       <div className="p-3 border-b border-slate-100 flex items-center gap-2">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Tìm kiếm bạn bè, nhóm..."
-            className="w-full bg-slate-100 text-slate-800 placeholder-slate-400 text-base pl-9 pr-3 py-1.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all"
-          />
-        </div>
+        <SearchBar
+          value={searchTerm}
+          onChange={setSearchTerm}
+          placeholder="Tìm kiếm bạn bè, nhóm..."
+        />
 
         <button
           type="button"
