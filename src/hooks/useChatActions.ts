@@ -30,7 +30,12 @@ import {
   outRoom,
 } from "../services/roomService";
 import { getUserList } from "../services/userService";
-import { createDirectConversation, createMessageId, formatChatTime } from "../utils/chatMessage";
+import {
+  createDirectConversation,
+  createMessageId,
+  formatChatTime,
+  getConversationId,
+} from "../utils/chatMessage";
 
 
 type HistoryMessage = PeopleChatMessage | RoomChatMessage;
@@ -82,7 +87,7 @@ export function useChatActions() {
           const isRoom = item.type === 1;
           return [
             {
-              id: isRoom ? `room-${name}` : `user-${name}`,
+              id: getConversationId(isRoom ? "group" : "direct", name),
               name,
               avatar: `https://api.dicebear.com/7.x/${
                 isRoom ? "bottts" : "avataaars"
@@ -261,7 +266,7 @@ export function useChatActions() {
         const room = isCreating
           ? await createRoom(roomName)
           : await joinRoom(roomName);
-        const conversationId = `room-${room.name}`;
+        const conversationId = getConversationId("group", room.name);
         const history = room.chatData ?? room.chatMess ?? [];
         const messages = mapHistory(history, conversationId, username);
         const members: RoomMember[] = room.user ?? room.userList ?? [];

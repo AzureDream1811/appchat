@@ -43,9 +43,17 @@ export function formatChatTime(value?: string): string {
   return date ? date.toLocaleTimeString([], timeOptions) : value;
 }
 
+export function getConversationId(
+  type: Conversation["type"],
+  name: string,
+): string {
+  const normalizedName = name.trim().toLocaleLowerCase();
+  return `${type === "group" ? "room" : "user"}-${normalizedName}`;
+}
+
 export function createDirectConversation(username: string): Conversation {
   return {
-    id: `user-${username}`,
+    id: getConversationId("direct", username),
     name: username,
     avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(username)}`,
     type: "direct",

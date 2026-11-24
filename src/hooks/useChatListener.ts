@@ -8,6 +8,7 @@ import {
   createDirectConversation,
   createMessageId,
   formatChatTime,
+  getConversationId,
 } from "../utils/chatMessage";
 
 export function useChatListener() {
@@ -25,50 +26,41 @@ export function useChatListener() {
     if (!username) return;
 
     return socket.subscribe((res) => {
-        if (res.event !== "SEND_CHAT" || res.status !== "success") return;
-        
-        const data = res.data as ReceivedChatMessage;
-      if (data.name === username) return;
+      if (res.event !== "SEND_CHAT" || res.status !== "success") return;
 
-      if (data.type === 0) {
-        const existing = conversationsRef.current.find(
-          (item) => item.name.toLocaleLowerCase() === data.name.toLocaleLowerCase() 
-          && item.type === "direct",
-        );
-        const conversationId = existing ? existing.id : `user-${data.name}`;
+      const data = res.data as ReceivedChatMessage;
+      if (data.type !== 0 && data.type !== 1) return;
+      if (data.name.toLocaleLowerCase() === username.toLocaleLowerCase()) return;
 
-        dispatch(
-          messageAdded({
+      const isRoom = data.type === 1;
+      const peerName = isRoom ? data.to : data.name;
+      const conversationType = isRoom ? "group" : "direct";
+      const conversationId = getConversationId(conversationType, peerName);
+      const existing = conversationsRef.current.find(
+        (item) =>
+          item.type === conversationType &&
+          item.name.toLocaleLowerCase() === peerName.toLocaleLowerCase(),
+      );
+
+      dispatch(
+        messageAdded({
+          conversationId,
+          ...(isRoom
+            ? {}
+            : {
+                conversation:
+                  existing ?? createDirectConversation(peerName),
+              }),
+          message: {
+            id: createMessageId(data.id),
             conversationId,
-            conversation: createDirectConversation(data.name),
-            message: {
-              id: createMessageId(data.id),
-              conversationId,
-              senderName: data.name,
-              content: data.mes,
-              createdAt: formatChatTime(data.createAt),
-              isMe: false,
-            },
-          }),
-        );
-      }
-
-      if (data.type === 1) {
-        const conversationId = `room-${data.to}`;
-        dispatch(
-          messageAdded({
-            conversationId,
-            message: {
-              id: createMessageId(data.id),
-              conversationId,
-              senderName: data.name,
-              content: data.mes,
-              createdAt: formatChatTime(data.createAt),
-              isMe: false,
-            },
-          }),
-        );
-      }
+            senderName: data.name,
+            content: data.mes,
+            createdAt: formatChatTime(data.createAt),
+            isMe: false,
+          },
+        }),
+      );
     });
   }, [dispatch, username]);
 }
