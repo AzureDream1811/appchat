@@ -176,7 +176,7 @@ const chatSlice = createSlice({
     builder.addCase(clearSession, () => initialState);
     builder.addCase(setSession, (state, action) => {
       if (state.owner && state.owner !== action.payload.user) {
-        return initialState;
+        return {...initialState, owner: action.payload.user };
       }
       state.owner = action.payload.user;
     });

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { socket } from "../services/socket";
 import { useAppDispatch } from "./useAppDispatch";
 import { useAppSelector } from "./useAppSelector";
@@ -11,8 +11,15 @@ import {
 } from "../utils/chatMessage";
 
 export function useChatListener() {
-  const dispatch = useAppDispatch();
   const username = useAppSelector((s) => s.auth.user);
+  const conversations = useAppSelector((s) => s.chat.conversations);
+  const dispatch = useAppDispatch();
+
+  const conversationsRef = useRef(conversations);
+
+  useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
 
   useEffect(() => {
     if (!username) return;
@@ -21,11 +28,15 @@ export function useChatListener() {
         if (res.event !== "SEND_CHAT" || res.status !== "success") return;
         
         const data = res.data as ReceivedChatMessage;
-        console.log(res.data)
       if (data.name === username) return;
 
       if (data.type === 0) {
-        const conversationId = `user-${data.name}`;
+        const existing = conversationsRef.current.find(
+          (item) => item.name.toLocaleLowerCase() === data.name.toLocaleLowerCase() 
+          && item.type === "direct",
+        );
+        const conversationId = existing ? existing.id : `user-${data.name}`;
+
         dispatch(
           messageAdded({
             conversationId,

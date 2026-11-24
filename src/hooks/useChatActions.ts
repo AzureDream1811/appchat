@@ -30,9 +30,8 @@ import {
   outRoom,
 } from "../services/roomService";
 import { getUserList } from "../services/userService";
-import { createMessageId, formatChatTime } from "../utils/chatMessage";
+import { createDirectConversation, createMessageId, formatChatTime } from "../utils/chatMessage";
 
-const HISTORY_PAGE_SIZE = 50;
 
 type HistoryMessage = PeopleChatMessage | RoomChatMessage;
 
@@ -49,19 +48,6 @@ function mapHistory(
     createdAt: formatChatTime(message.createAt),
     isMe: message.name === username,
   }));
-}
-
-function createDirectConversation(username: string): Conversation {
-  return {
-    id: `user-${username}`,
-    name: username,
-    avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(username)}`,
-    type: "direct",
-    lastMessage: "",
-    lastMessageTime: "",
-    unreadCount: 0,
-    isOnline: false,
-  };
 }
 
 export function useChatActions() {
@@ -101,7 +87,9 @@ export function useChatActions() {
               }/svg?seed=${encodeURIComponent(name)}`,
               type: isRoom ? ("group" as const) : ("direct" as const),
               lastMessage: "",
-              lastMessageTime: item.actionTime,
+              lastMessageTime: item.actionTime
+                ? formatChatTime(item.actionTime)
+                : "",
               unreadCount: 0,
               isOnline: false,
             },
@@ -129,7 +117,7 @@ export function useChatActions() {
             conversationId: conversation.id,
             messages: mapHistory(history, conversation.id, username),
             page: 1,
-            hasMore: history.length >= HISTORY_PAGE_SIZE,
+            hasMore: history.length >= 0,
             roomMembers: response.user ?? response.userList ?? [],
           }),
         );
@@ -142,7 +130,7 @@ export function useChatActions() {
           conversationId: conversation.id,
           messages: mapHistory(history, conversation.id, username),
           page: 1,
-          hasMore: history.length >= HISTORY_PAGE_SIZE,
+          hasMore: history.length >= 0,
         }),
       );
     },
@@ -151,11 +139,23 @@ export function useChatActions() {
 
   const startDirectChat = useCallback(
     async (name: string) => {
-      const conversation = createDirectConversation(name.trim());
-      dispatch(conversationUpserted(conversation));
+      const trimmed = name.trim();
+
+      if (trimmed.toLowerCase() === username.toLowerCase()) {
+        throw new Error("Bạn không thể tự nhắn tin cho chính mình.");
+      }
+
+      const existing = conversations.find(
+        (item) =>
+          item.name.toLocaleLowerCase() === trimmed.toLocaleLowerCase() &&
+          item.type === "direct",
+      );
+
+      const conversation = existing ?? createDirectConversation(trimmed);
+      if (!existing) dispatch(conversationUpserted(conversation));
       await selectConversation(conversation);
     },
-    [dispatch, selectConversation],
+    [conversations, dispatch, selectConversation, username],
   );
 
   const loadMoreMessages = useCallback(async () => {
@@ -181,12 +181,13 @@ export function useChatActions() {
           nextPage,
         );
         const history = response.chatMess ?? response.chatData ?? [];
+        
         dispatch(
           historyLoaded({
             conversationId: selectedId,
             messages: mapHistory(history, selectedId, username),
             page: nextPage,
-            hasMore: history.length >= HISTORY_PAGE_SIZE,
+            hasMore: history.length >= 0,
             roomMembers: response.user ?? response.userList ?? [],
           }),
         );
@@ -200,7 +201,7 @@ export function useChatActions() {
             conversationId: selectedId,
             messages: mapHistory(history, selectedId, username),
             page: nextPage,
-            hasMore: history.length >= HISTORY_PAGE_SIZE,
+            hasMore: history.length >= 0,
           }),
         );
       }
@@ -283,7 +284,7 @@ export function useChatActions() {
             conversationId,
             messages: mapHistory(history, conversationId, username),
             page: 1,
-            hasMore: history.length >= HISTORY_PAGE_SIZE,
+            hasMore: history.length >= 0,
             roomMembers: members,
           }),
         );

@@ -42,6 +42,7 @@ export default function ChatWindow({
     top: number;
   } | null>(null);
   const loadingMoreRef = useRef(false);
+  const initialScrollDoneRef = useRef<string | null>(null);
 
   useLayoutEffect(() => {
     const container = messagesContainerRef.current;
@@ -56,6 +57,14 @@ export default function ChatWindow({
     }
 
     scrollBeforeLoadRef.current = null;
+
+    if (initialScrollDoneRef.current !== conversation.id) {
+      if (messages.length === 0) return;
+      initialScrollDoneRef.current = conversation.id;
+      container.scrollTop = container.scrollHeight;
+      return;
+    }
+
     container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
   }, [conversation.id, messages]);
 
@@ -116,6 +125,7 @@ export default function ChatWindow({
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.nativeEvent.isComposing) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
