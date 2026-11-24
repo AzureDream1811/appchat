@@ -54,8 +54,14 @@ class SocketService {
       return;
     }
 
-    this.listeners.forEach((listener) => listener(res));
-
+    this.listeners.forEach((listener) => {
+      try {
+        listener(res);
+      } catch (error) {
+        console.error(error);
+      }
+    });
+    
     const pending = [...this.pendingRequests].find(
       (p) => p.event === res.event,
     );
@@ -133,7 +139,7 @@ class SocketService {
 
       this.pendingRequests.add(pendingRequest);
 
-      try{
+      try {
         this.ws?.send(JSON.stringify(message));
       } catch (error) {
         console.error("Failed to send WebSocket request:", error);
