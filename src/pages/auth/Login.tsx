@@ -1,29 +1,32 @@
 import { useState, type SyntheticEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAppDispatch } from "../../hooks/useAppDispatch";
-import { useAppSelector } from "../../hooks/useAppSelector";
-import { clearAuthError, login } from "../../store/slices/authSlice";
+import { setSession } from "../../store/slices/authSlice";
+import { socket } from "../../services/socket";
+import type { LoginResponseDataDto } from "../../types/auth";
 
 export default function LoginPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { status, error } = useAppSelector((state) => state.auth);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const isSubmitting = status === "connecting";
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   function handleSubmit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
-    dispatch(clearAuthError());
+    setError(null);
+    setIsSubmitting(true);
 
-    void dispatch(login({ username, password }))
-      .unwrap()
-      .then((session) => {
-        localStorage.setItem("user", session.username);
-        localStorage.setItem("reLoginCode", session.reLoginCode);
+    void socket.request<LoginResponseDataDto>("LOGIN", { user: username, pass: password })
+      .then((result) => {
+        dispatch(setSession({ user: username, reLoginCode: result.RE_LOGIN_CODE }));
         navigate("/chat");
       })
-      .catch(() => undefined);
+      .catch((reason: unknown) => {
+        setError(reason instanceof Error ? reason.message : "Đăng nhập thất bại.");
+      })
+      .finally(() => setIsSubmitting(false));
   }
 
   return (

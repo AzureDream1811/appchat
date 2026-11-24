@@ -1,221 +1,57 @@
-import {
-  createAsyncThunk,
-  createSlice,
-  type PayloadAction,
-} from "@reduxjs/toolkit";
-import type { AuthSession } from "../../types/auth";
-import {
-  login as loginUser,
-  logout as logoutUser,
-  relogin as reloginUser,
-  register as registerUser,
-} from "../../services/authService";
+import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
-export type AuthStatus =
-  | "bootstrapping"
-  | "idle"
-  | "connecting"
-  | "success"
-  | "authenticated"
-  | "error";
-
-export interface AuthState {
-  status: AuthStatus;
-  session: AuthSession | null;
-  error: string | null;
+interface AuthState {
+  user: string | null;
+  reLoginCode: string | null;
+  isLoggedIn: boolean;
 }
 
-const initialState: AuthState = {
-  status: "bootstrapping",
-  session: null,
-  error: null,
-};
+const storedUser = localStorage.getItem("user");
+const storedReLoginCode = localStorage.getItem("reLoginCode");
 
-export const register = createAsyncThunk<
-  string,
-  { username: string; password: string },
-  { rejectValue: string }
->("auth/register", async ({ username, password }, { rejectWithValue }) => {
-  try {
-    return await registerUser(username, password);
-  } catch (error) {
-    return rejectWithValue(
-      error instanceof Error ? error.message : "Registration failed.",
-    );
-  }
-});
+if (storedUser && !storedReLoginCode) {
+  localStorage.removeItem("user");
+}
+if (storedReLoginCode && !storedUser) {
+  localStorage.removeItem("reLoginCode");
+}
 
-// Define the login async thunk
-// Three createAsyncThunk parameters:
-//  1. The return type of the payload creator (AuthSession)
-//  2. The first argument to the payload creator ({ username: string; password: string })
-//  3. An object with a rejectValue property (string)
-export const login = createAsyncThunk<
-  AuthSession,
-  { username: string; password: string },
-  { rejectValue: string }
->("auth/login", async ({ username, password }, { rejectWithValue }) => {
-  try {
-    const response = await loginUser(username, password);
-    return {
-      username,
-      reLoginCode: response.RE_LOGIN_CODE,
-      authenticatedAt: new Date().toISOString(),
-    };
-  } catch (error) {
-    return rejectWithValue(
-      error instanceof Error ? error.message : "Login failed.",
-    );
-  }
-});
-
-export const relogin = createAsyncThunk<
-  AuthSession,
-  void,
-  { state: { auth: AuthState }; rejectValue: string }
->("auth/relogin", async (_, { getState, rejectWithValue }) => {
-  const session = getState().auth.session;
-
-  if (!session) {
-    return rejectWithValue("No session is available for reconnecting.");
-  }
-
-  try {
-    const response = await reloginUser(
-      session.username,
-      session.reLoginCode,
-    );
-    return {
-      ...session,
-      reLoginCode: response.RE_LOGIN_CODE,
-    };
-  } catch (error) {
-    return rejectWithValue(
-      error instanceof Error ? error.message : "Reconnect failed.",
-    );
-  }
-});
-
-export const logout = createAsyncThunk<
-  string,
-  void,
-  { rejectValue: string }
->("auth/logout", async (_, { rejectWithValue }) => {
-  try {
-    return await logoutUser();
-  } catch (error) {
-    return rejectWithValue(
-      error instanceof Error ? error.message : "Logout failed.",
-    );
-  }
-});
+const initialState: AuthState =
+  storedUser && storedReLoginCode
+    ? {
+        user: storedUser,
+        reLoginCode: storedReLoginCode,
+        isLoggedIn: false,
+      }
+    : {
+        user: null,
+        reLoginCode: null,
+        isLoggedIn: false,
+      };
 
 const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
-    loginStarted(state) {
-      state.status = "connecting";
-      state.error = null;
-    },
-    loginSucceeded(state, action: PayloadAction<AuthSession>) {
-      state.status = "authenticated";
-      state.session = action.payload;
-      state.error = null;
-    },
-    loginFailed(state, action: PayloadAction<string>) {
-      state.status = "error";
-      state.session = null;
-      state.error = action.payload;
-    },
-    clearSession(state) {
-      state.status = "idle";
-      state.session = null;
-      state.error = null;
-    },
     setSession(
       state,
-      action: PayloadAction<{ username: string; reLoginCode: string }>,
+      action: PayloadAction<{ user: string; reLoginCode: string }>,
     ) {
-      state.status = "authenticated";
-      state.session = {
-        username: action.payload.username,
-        reLoginCode: action.payload.reLoginCode,
-        authenticatedAt: new Date().toISOString(),
-      };
-      state.error = null;
+      state.user = action.payload.user;
+      state.reLoginCode = action.payload.reLoginCode;
+      state.isLoggedIn = true;
+      localStorage.setItem("user", action.payload.user);
+      localStorage.setItem("reLoginCode", action.payload.reLoginCode);
     },
-    clearAuthError(state) {
-      state.error = null;
-      if (state.status === "error") {
-        state.status = "idle";
-      }
+    clearSession(state) {
+      state.user = null;
+      state.reLoginCode = null;
+      state.isLoggedIn = false;
+      localStorage.removeItem("user");
+      localStorage.removeItem("reLoginCode");
     },
-  },
-  extraReducers: (builder) => {
-    builder
-      .addCase(register.pending, (state) => {
-        state.status = "connecting";
-        state.error = null;
-      })
-      .addCase(register.fulfilled, (state) => {
-        state.status = "success";
-        state.error = null;
-      })
-      .addCase(register.rejected, (state, action) => {
-        state.status = "error";
-        state.error = action.payload ?? "Registration failed.";
-      })
-      .addCase(login.pending, (state) => {
-        state.status = "connecting";
-        state.error = null;
-      })
-      .addCase(login.fulfilled, (state, action) => {
-        state.status = "authenticated";
-        state.session = action.payload;
-        state.error = null;
-      })
-      .addCase(login.rejected, (state, action) => {
-        state.status = "error";
-        state.session = null;
-        state.error = action.payload ?? "Login failed.";
-      })
-      .addCase(relogin.pending, (state) => {
-        state.status = "connecting";
-        state.error = null;
-      })
-      .addCase(relogin.fulfilled, (state, action) => {
-        state.status = "authenticated";
-        state.session = action.payload;
-        state.error = null;
-      })
-      .addCase(relogin.rejected, (state, action) => {
-        state.status = "error";
-        state.error = action.payload ?? "Reconnect failed.";
-      })
-      .addCase(logout.pending, (state) => {
-        state.status = "connecting";
-        state.error = null;
-      })
-      .addCase(logout.fulfilled, (state) => {
-        state.status = "idle";
-        state.session = null;
-        state.error = null;
-      })
-      .addCase(logout.rejected, (state, action) => {
-        state.status = "error";
-        state.error = action.payload ?? "Logout failed.";
-      });
   },
 });
 
-export const {
-  loginStarted,
-  loginSucceeded,
-  loginFailed,
-  clearSession,
-  setSession,
-  clearAuthError,
-} = authSlice.actions;
-
+export const { setSession, clearSession } = authSlice.actions;
 export default authSlice.reducer;

@@ -2,7 +2,8 @@ import { useNavigate } from "react-router-dom";
 import { MessageSquare, Users, CheckSquare, Settings, LogOut } from "lucide-react";
 import { useAppDispatch } from "../../hooks/useAppDispatch";
 import { useAppSelector } from "../../hooks/useAppSelector";
-import { logout } from "../../store/slices/authSlice";
+import { clearSession } from "../../store/slices/authSlice";
+import { socket } from "../../services/socket";
 
 interface SidebarNavProps {
   activeTab?: string;
@@ -14,19 +15,23 @@ export default function SidebarNav({ activeTab = "messages", onTabChange }: Side
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
 
-  const session = useAppSelector((state) => state.auth.session);
-  const username = session?.username ?? "User";
+  const user = useAppSelector((state) => state.auth.user);
+  const username = user ?? "User";
 
   const firstLetter = username.charAt(0).toUpperCase();
 
   function handleLogout() {
     if (window.confirm("Bạn có chắc chắn muốn đăng xuất không?")) {
-      localStorage.removeItem("user");
-      localStorage.removeItem("reLoginCode");
-      void dispatch(logout())
-        .unwrap()
-        .then(() => navigate("/login"))
-        .catch(() => undefined);
+      void socket.request<string>("LOGOUT")
+        .then(() => {
+          dispatch(clearSession());
+          navigate("/login");
+        })
+        .catch((error: unknown) => {
+          console.error(error);
+          dispatch(clearSession());
+          navigate("/login");
+        });
     }
   }
 

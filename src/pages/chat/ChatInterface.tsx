@@ -24,8 +24,8 @@ import { socket } from "../../services/socket";
 import type { WsResponse } from "../../types/ws";
 
 export default function ChatInterface() {
-  const session = useAppSelector((state) => state.auth.session);
-  const myName = session?.username ?? "Tôi";
+  const user = useAppSelector((state) => state.auth.user);
+  const myName = user ?? "Tôi";
   const [activeTab, setActiveTab] = useState("messages");
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [messages, setMessages] = useState<Record<string, Message[]>>({});
@@ -42,7 +42,7 @@ export default function ChatInterface() {
 
   useEffect(() => {
     async function loadUserList() {
-      if (!session) return;
+      if (!user) return;
 
       try {
         const userList = await getUserList();
@@ -70,7 +70,7 @@ export default function ChatInterface() {
     }
 
     void loadUserList();
-  }, [session]);
+  }, [user]);
 
   useEffect(() => {
     const unsubscribe = socket.subscribe((response: WsResponse<unknown>) => {

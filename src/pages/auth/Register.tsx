@@ -1,24 +1,20 @@
 import { useState, type SyntheticEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAppDispatch } from "../../hooks/useAppDispatch";
-import { useAppSelector } from "../../hooks/useAppSelector";
-import { clearAuthError, register } from "../../store/slices/authSlice";
+import { socket } from "../../services/socket";
 
 export default function Register() {
-  const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { status, error } = useAppSelector((state) => state.auth);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
-
-  const isSubmitting = status === "connecting";
+  const [serverError, setServerError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   function handleSubmit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError(null);
-    dispatch(clearAuthError());
+    setServerError(null);
 
     if (!/^[A-Za-z0-9_]+$/.test(username)) {
       setFormError("Tên người dùng chỉ gồm chữ cái, số và dấu gạch dưới.");
@@ -35,17 +31,24 @@ export default function Register() {
       return;
     }
 
-    void dispatch(register({ username, password }))
-      .unwrap()
+    setIsSubmitting(true);
+    void socket.request<string>("REGISTER", { user: username, pass: password })
       .then(() => navigate("/login"))
-      .catch(() => undefined);
+      .catch((reason: unknown) => {
+        setServerError(
+          reason instanceof Error
+            ? reason.message === "User already exists!"
+              ? "Tên người dùng này đã đăng ký."
+              : reason.message
+            : "Đăng ký thất bại.",
+        );
+      })
+      .finally(() => setIsSubmitting(false));
   }
 
   const displayError =
     formError ??
-    (error === "User already exists!"
-      ? "Tên người dùng này đã đăng ký."
-      : error);
+    serverError;
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
