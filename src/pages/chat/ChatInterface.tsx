@@ -20,7 +20,8 @@ import {
   sendChatMessage,
 } from "../../services/messageService";
 import { getUserList } from "../../services/userService";
-import { subscribeSocketEvent } from "../../services/socket";
+import { socket } from "../../services/socket";
+import type { WsResponse } from "../../types/ws";
 
 export default function ChatInterface() {
   const session = useAppSelector((state) => state.auth.session);
@@ -72,7 +73,7 @@ export default function ChatInterface() {
   }, [session]);
 
   useEffect(() => {
-    const unsubscribe = subscribeSocketEvent((response) => {
+    const unsubscribe = socket.subscribe((response: WsResponse<unknown>) => {
       if (response.event === "SEND_CHAT" && response.status === "success") {
         const data = response.data as ReceiveChatMessageDto | undefined;
         if (!data) return;

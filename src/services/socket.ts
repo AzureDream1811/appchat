@@ -1,137 +1,153 @@
-import type { WebSocketRequest } from "../types/ws";
+import type {
+  ChatEvent,
+  WsRequest,
+  WsResponse,
+} from "../types/ws";
 
 const SOCKET_URL =
   import.meta.env.VITE_WEBSOCKET_URL ?? "wss://chat.longapp.io.vn/chat/chat";
 const REQUEST_TIMEOUT = 10_000;
 
-let socket: WebSocket | null = null;
+type SocketListener = (response: WsResponse<unknown>) => void;
 
-export interface SocketResponse {
-  event: string;
-  status: "success" | "error";
-  data?: unknown;
-  mes?: string;
+interface PendingRequest {
+  event: ChatEvent;
+  resolve: (value: unknown) => void;
+  reject: (reason: Error) => void;
+  timeoutId: number;
 }
 
-type SocketEventListener = (response: SocketResponse) => void;
-const globalListeners = new Set<SocketEventListener>();
+class SocketService {
+  private ws: WebSocket | null = null;
+  private listeners = new Set<SocketListener>();
+  private connecting: Promise<void> | null = null;
+  private pendingRequests = new Set<PendingRequest>();
 
-export function subscribeSocketEvent(callback: SocketEventListener): () => void {
-  globalListeners.add(callback);
-  return () => {
-    globalListeners.delete(callback);
-  };
-}
-
-export function connectSocket(): Promise<void> {
-
-  // Check if the socket is already connected
-  if (socket?.readyState === WebSocket.OPEN) {
-    return Promise.resolve();
-  }
-
-  // If the socket is not connected, create a new WebSocket connection
-  return new Promise((resolve, reject) => {
-    socket = new WebSocket(SOCKET_URL);
-
-    socket.onopen = () => resolve();
-    socket.onmessage = (event: MessageEvent) => {
-      try {
-        const payload = JSON.parse(String(event.data));
-        globalListeners.forEach((listener) => {
-          try {
-            listener(payload);
-          } catch (err) {
-            console.error("Listener error:", err);
-          }
-        });
-      } catch (err) {
-        console.error("Parse WS message error:", err);
-      }
-    };
-    socket.onerror = () => reject(new Error("Cannot connect to chat server."));
-    socket.onclose = () => {
-      socket = null;
-    };
-  });
-}
-
-export function disconnectSocket(): void {
-  socket?.close();
-  socket = null;
-}
-
-
-export async function sendSocketMessage<T>(
-  event: string,
-  data?: unknown,
-): Promise<T> {
-  // 1. Connect to WebSocket
-  await connectSocket();
-
-  if (!socket || socket.readyState !== WebSocket.OPEN) {
-    throw new Error("WebSocket is not connected.");
-  }
-
-  const request: WebSocketRequest<unknown> = {
-    action: "onchat",
-    data: { event, data },
-  };
-
-  const connectedSocket = socket;
-
-  // 2. Send request and wait for response
-  return new Promise<T>((resolve, reject) => {
-    // Timeout after 10 seconds
-    const timeoutId = window.setTimeout(() => {
-      connectedSocket.removeEventListener("message", handleMessage);
-      reject(new Error("Request timed out."));
-    }, REQUEST_TIMEOUT);
-
-    // 3. Listen for server response
-    function handleMessage(message: MessageEvent) {
-      const response = JSON.parse(String(message.data));
-      console.log("[WebSocket Nhận về]:", response);
-
-      if (response.event === "AUTH" && response.status === "error") {
-        window.clearTimeout(timeoutId);
-        connectedSocket.removeEventListener("message", handleMessage);
-        reject(new Error(response.mes || "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!"));
-        return;
-      }
-      // Only handle the matching event
-      if (response.event !== event) return;
-
-      window.clearTimeout(timeoutId);
-      connectedSocket.removeEventListener("message", handleMessage);
-
-      // Handle error response
-      if (response.status === "error") {
-        reject(new Error(response.mes || "Request failed."));
-        return;
-      }
-
-      // Return response data
-      resolve(response.data as T);
+  connect(): Promise<void> {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      return Promise.resolve();
+    }
+    if (this.connecting) {
+      return this.connecting;
     }
 
-    connectedSocket.addEventListener("message", handleMessage);
+    this.connecting = new Promise<void>((resolve, reject) => {
+      const ws = new WebSocket(SOCKET_URL);
+      this.ws = ws;
 
-    // 4. Send JSON request
-    console.log("[WebSocket Gửi đi]:", request);
-    connectedSocket.send(JSON.stringify(request));
-  });
-}
-export async function sendSocketEvent(event: string, data?: unknown): Promise<void> {
-  await connectSocket();
-  if (!socket || socket.readyState !== WebSocket.OPEN) {
-    throw new Error("WebSocket chưa được kết nối!");
+      ws.onopen = () => {
+        this.connecting = null;
+        resolve();
+      };
+
+      ws.onerror = () => {
+        this.connecting = null;
+        reject(new Error("WebSocket connection error."));
+      };
+
+      ws.onmessage = (event) => {
+        let response: WsResponse<unknown>;
+
+        try {
+          response = JSON.parse(String(event.data)) as WsResponse<unknown>;
+        } catch {
+          console.error("Invalid WebSocket JSON response.");
+          return;
+        }
+
+        for (const listener of this.listeners) {
+          listener(response);
+        }
+
+        for (const request of [...this.pendingRequests]) {
+          if (request.event !== response.event) continue;
+
+          window.clearTimeout(request.timeoutId);
+          this.pendingRequests.delete(request);
+
+          if (response.status === "error") {
+            request.reject(
+              new Error(response.mes || "Request failed."),
+            );
+          } else {
+            request.resolve(response.data);
+          }
+        }
+      };
+
+      ws.onclose = () => {
+        if (this.ws !== ws) return;
+
+        this.ws = null;
+        this.connecting = null;
+
+        for (const request of this.pendingRequests) {
+          window.clearTimeout(request.timeoutId);
+          request.reject(new Error("WebSocket connection closed."));
+        }
+        this.pendingRequests.clear();
+      };
+    });
+
+    return this.connecting;
   }
-  const request = {
-    action: "onchat",
-    data: { event, data },
-  };
-  console.log("[WebSocket Bắn tin nhanh]:", request);
-  socket.send(JSON.stringify(request));
+
+  async send<T>(event: ChatEvent, data?: T): Promise<boolean> {
+    await this.connect();
+
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      return false;
+    }
+
+    const message: WsRequest<T> = {
+      action: "onchat",
+      data: { event, data },
+    };
+
+    this.ws.send(JSON.stringify(message));
+    return true;
+  }
+
+  async request<T>(event: ChatEvent, data?: unknown): Promise<T> {
+    await this.connect();
+
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      throw new Error("WebSocket is not connected.");
+    }
+
+    const message: WsRequest<unknown> = {
+      action: "onchat",
+      data: { event, data },
+    };
+
+    return new Promise<T>((resolve, reject) => {
+      const pendingRequest: PendingRequest = {
+        event,
+        resolve: (value) => resolve(value as T),
+        reject,
+        timeoutId: 0,
+      };
+
+      pendingRequest.timeoutId = window.setTimeout(() => {
+        this.pendingRequests.delete(pendingRequest);
+        reject(new Error("Request timed out."));
+      }, REQUEST_TIMEOUT);
+
+      this.pendingRequests.add(pendingRequest);
+      this.ws?.send(JSON.stringify(message));
+    });
+  }
+
+  subscribe(listener: SocketListener): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  disconnect(): void {
+    this.ws?.close();
+    this.ws = null;
+    this.connecting = null;
+  }
 }
 
+export const socket = new SocketService();

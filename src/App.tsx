@@ -1,18 +1,14 @@
 import { useCallback, useEffect, useRef } from "react";
 import { Outlet } from "react-router-dom";
 import { useAppDispatch } from "./hooks/useAppDispatch";
-import {
-  connectSocket,
-  sendSocketEvent,
-  subscribeSocketEvent,
-  type SocketResponse,
-} from "./services/socket";
+import { socket } from "./services/socket";
+import type { WsResponse } from "./types/ws";
+import { relogin } from "./services/authService";
 import { clearSession, setSession } from "./store/slices/authSlice";
-import type { LoginResult } from "./types/auth";
 
 export default function App() {
   const dispatch = useAppDispatch();
-  const reLoginSent = useRef(false);
+  const reLoginAttempted = useRef(false);
 
   const clearStoredSession = useCallback(() => {
     localStorage.removeItem("user");
@@ -21,50 +17,36 @@ export default function App() {
   }, [dispatch]);
 
   useEffect(() => {
-    const unsubscribe = subscribeSocketEvent((response: SocketResponse) => {
-      if (response.event === "AUTH") {
+    const unsubscribe = socket.subscribe((response: WsResponse<unknown>) => {
+      if (response.event === "AUTH" && response.status === "error") {
         clearStoredSession();
         return;
       }
-
-      if (response.event !== "RE_LOGIN") {
-        return;
-      }
-
-      if (response.status === "error") {
-        reLoginSent.current = false;
-        clearStoredSession();
-        return;
-      }
-
-      const data = response.data as LoginResult | undefined;
-      const username = localStorage.getItem("user");
-
-      if (!data?.RE_LOGIN_CODE || !username) {
-        clearStoredSession();
-        return;
-      }
-
-      localStorage.setItem("reLoginCode", data.RE_LOGIN_CODE);
-      dispatch(setSession({
-        username,
-        reLoginCode: data.RE_LOGIN_CODE,
-      }));
     });
 
-    void connectSocket()
-      .then(() => {
+    void socket.connect()
+      .then(async () => {
         const username = localStorage.getItem("user");
         const reLoginCode = localStorage.getItem("reLoginCode");
 
-        if (username && reLoginCode && !reLoginSent.current) {
-          reLoginSent.current = true;
-          void sendSocketEvent("RE_LOGIN", {
-            user: username,
-            code: reLoginCode,
-          }).catch(() => {
-            reLoginSent.current = false;
-          });
+        if (username && reLoginCode) {
+          if (reLoginAttempted.current) {
+            return;
+          }
+
+          reLoginAttempted.current = true;
+          try {
+            const result = await relogin(username, reLoginCode);
+            localStorage.setItem("reLoginCode", result.RE_LOGIN_CODE);
+            dispatch(setSession({
+              username,
+              reLoginCode: result.RE_LOGIN_CODE,
+            }));
+          } catch (error) {
+            console.error(error);
+            reLoginAttempted.current = false;
+            clearStoredSession();
+          }
           return;
         }
 

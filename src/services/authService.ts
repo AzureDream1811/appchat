@@ -7,10 +7,7 @@ import type {
   RegisterRequestDto,
   RegisterResponseDataDto,
 } from "../types/auth";
-import {
-  disconnectSocket,
-  sendSocketMessage,
-} from "./socket";
+import { socket } from "./socket";
 
 export async function register(
   username: string,
@@ -20,7 +17,7 @@ export async function register(
     user: username,
     pass: password,
   };
-  const response = await sendSocketMessage<RegisterResponseDataDto>(
+  const response = await socket.request<RegisterResponseDataDto>(
     "REGISTER",
     request,
   );
@@ -40,7 +37,7 @@ export async function login(
     user: username,
     pass: password,
   };
-  const response = await sendSocketMessage<LoginResponseDataDto>(
+  const response = await socket.request<LoginResponseDataDto>(
     "LOGIN",
     request,
   );
@@ -64,7 +61,7 @@ export async function relogin(
     user: username,
     code: reLoginCode,
   };
-  const response = await sendSocketMessage<ReLoginResponseDataDto>(
+  const response = await socket.request<ReLoginResponseDataDto>(
     "RE_LOGIN",
     request,
   );
@@ -82,7 +79,7 @@ export async function relogin(
 
 export async function logout(): Promise<LogoutResponseDto> {
   try {
-    const response = await sendSocketMessage<LogoutResponseDto>("LOGOUT");
+    const response = await socket.request<LogoutResponseDto>("LOGOUT");
 
     if (typeof response !== "string") {
       throw new Error("Invalid LOGOUT response.");
@@ -90,6 +87,6 @@ export async function logout(): Promise<LogoutResponseDto> {
 
     return response;
   } finally {
-    disconnectSocket();
+    socket.disconnect();
   }
 }

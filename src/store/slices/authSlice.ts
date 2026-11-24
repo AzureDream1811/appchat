@@ -3,11 +3,7 @@ import {
   createSlice,
   type PayloadAction,
 } from "@reduxjs/toolkit";
-import type { AuthSession } from "../../domain/auth/AuthSession";
-import {
-  mapLoginResponseToSession,
-  mapReLoginResponseToSession,
-} from "../../mappers/authMapper";
+import type { AuthSession } from "../../types/auth";
 import {
   login as loginUser,
   logout as logoutUser,
@@ -61,7 +57,11 @@ export const login = createAsyncThunk<
 >("auth/login", async ({ username, password }, { rejectWithValue }) => {
   try {
     const response = await loginUser(username, password);
-    return mapLoginResponseToSession(username, response);
+    return {
+      username,
+      reLoginCode: response.RE_LOGIN_CODE,
+      authenticatedAt: new Date().toISOString(),
+    };
   } catch (error) {
     return rejectWithValue(
       error instanceof Error ? error.message : "Login failed.",
@@ -85,7 +85,10 @@ export const relogin = createAsyncThunk<
       session.username,
       session.reLoginCode,
     );
-    return mapReLoginResponseToSession(session, response);
+    return {
+      ...session,
+      reLoginCode: response.RE_LOGIN_CODE,
+    };
   } catch (error) {
     return rejectWithValue(
       error instanceof Error ? error.message : "Reconnect failed.",

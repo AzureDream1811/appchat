@@ -3,10 +3,7 @@ import type {
   GetPeopleChatMessagesResponseDto,
   SendChatRequestDto,
 } from "../types/chat";
-import {
-  sendSocketEvent,
-  sendSocketMessage,
-} from "./socket";
+import { socket } from "./socket";
 
 export async function sendChatMessage(
   type: "room" | "people",
@@ -19,7 +16,7 @@ export async function sendChatMessage(
     mes: messageContent.trim(),
   };
 
-  await sendSocketEvent("SEND_CHAT", request);
+  await socket.send("SEND_CHAT", request);
 }
 
 export async function getPeopleChatMessages(
@@ -31,7 +28,7 @@ export async function getPeopleChatMessages(
     page,
   };
 
-  return await sendSocketMessage<GetPeopleChatMessagesResponseDto>(
+  return await socket.request<GetPeopleChatMessagesResponseDto>(
     "GET_PEOPLE_CHAT_MES",
     request,
   );

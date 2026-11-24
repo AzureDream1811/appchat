@@ -30,3 +30,9 @@ export type LogoutResponseDto = string;
 export interface LoginResult {
   RE_LOGIN_CODE: string;
 }
+
+export interface AuthSession {
+  username: string;
+  reLoginCode: string;
+  authenticatedAt: string;
+}

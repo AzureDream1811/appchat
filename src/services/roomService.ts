@@ -8,7 +8,7 @@ import type {
   OutRoomRequestDto,
   OutRoomResponseDataDto,
 } from "../types/chat";
-import { sendSocketMessage } from "./socket";
+import { socket } from "./socket";
 
 export async function createRoom(
   roomName: string,
@@ -17,7 +17,7 @@ export async function createRoom(
     name: roomName.trim(),
   };
 
-  return await sendSocketMessage<CreateRoomResponseDataDto>(
+  return await socket.request<CreateRoomResponseDataDto>(
     "CREATE_ROOM",
     request,
   );
@@ -30,7 +30,7 @@ export async function joinRoom(
     name: roomName.trim(),
   };
 
-  return await sendSocketMessage<JoinRoomResponseDataDto>("JOIN_ROOM", request);
+  return await socket.request<JoinRoomResponseDataDto>("JOIN_ROOM", request);
 }
 
 export async function outRoom(
@@ -40,7 +40,7 @@ export async function outRoom(
     name: roomName.trim(),
   };
 
-  return await sendSocketMessage<OutRoomResponseDataDto>("OUT_ROOM", request);
+  return await socket.request<OutRoomResponseDataDto>("OUT_ROOM", request);
 }
 
 export async function getRoomChatMessages(
@@ -52,7 +52,7 @@ export async function getRoomChatMessages(
     page,
   };
 
-  return await sendSocketMessage<GetRoomChatMessagesResponseDataDto>(
+  return await socket.request<GetRoomChatMessagesResponseDataDto>(
     "GET_ROOM_CHAT_MES",
     request,
   );
