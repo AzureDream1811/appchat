@@ -56,27 +56,39 @@ export function useChatConversations(user: string | null) {
 
       try {
         const userList = await getUserList();
-        const serverConversations = userList.map((item) => {
+        const currentUser = user.trim().toLocaleLowerCase();
+        const seen = new Set<string>();
+        const serverConversations = userList.flatMap((item) => {
+          const name = item.name.trim();
+          const normalizedName = name.toLocaleLowerCase();
+          const key = `${item.type}:${normalizedName}`;
+
+          if (!name || normalizedName === currentUser || seen.has(key)) {
+            return [];
+          }
+          seen.add(key);
+
           const isRoom = item.type === 1;
-          return {
-            id: isRoom ? `room-${item.name}` : `user-${item.name}`,
-            name: item.name,
+          return [{
+            id: isRoom ? `room-${name}` : `user-${name}`,
+            name,
             avatar: `https://api.dicebear.com/7.x/${
               isRoom ? "bottts" : "avataaars"
-            }/svg?seed=${encodeURIComponent(item.name)}`,
+            }/svg?seed=${encodeURIComponent(name)}`,
             type: isRoom ? "group" as const : "direct" as const,
             lastMessage: "",
             lastMessageTime: item.actionTime,
             unreadCount: 0,
             isOnline: false,
-          };
+          }];
         });
 
-        setConversations((previous) => {
-          const serverIds = new Set(serverConversations.map((item) => item.id));
-          const cachedOnly = previous.filter((item) => !serverIds.has(item.id));
-          return [...serverConversations, ...cachedOnly];
-        });
+        setConversations(serverConversations);
+        setSelectedId((previous) =>
+          serverConversations.some((item) => item.id === previous)
+            ? previous
+            : null,
+        );
       } catch (error) {
         console.error("Không thể tải danh sách conversation:", error);
       }
