@@ -16,9 +16,9 @@ import type { Conversation } from "../../types/chat";
 import type { RoomMember } from "../../types/chat";
 import { useEffect } from "react";
 import {
-  getPeopleChatMessages,
+  getDirectChatMessages,
   sendChatMessage,
-} from "../../services/messageService";
+} from "../../services/chatService";
 import { getUserList } from "../../services/userService";
 import { socket } from "../../services/socket";
 import type { WsResponse } from "../../types/ws";
@@ -174,7 +174,7 @@ export default function ChatInterface() {
     }
 
     try {
-      const history = await getPeopleChatMessages(conversation.name, 1);
+      const history = await getDirectChatMessages(conversation.name, 1);
       const conversationMessages = history.map((item) => ({
         id: `msg-${item.id}`,
         conversationId,

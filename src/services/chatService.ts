@@ -18,7 +18,7 @@ export async function sendChatMessage(
   await socket.send("SEND_CHAT", request);
 }
 
-export async function getPeopleChatMessages(
+export async function getDirectChatMessages(
   username: string,
   page = 1,
 ): Promise<PeopleChatMessages> {
