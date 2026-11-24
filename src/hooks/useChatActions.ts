@@ -40,7 +40,7 @@ function mapHistory(
   conversationId: string,
   username: string,
 ): Message[] {
-  return history.map((message) => ({
+  return [...history].reverse().map((message) => ({
     id: createMessageId(message.id),
     conversationId,
     senderName: message.name,
@@ -261,6 +261,7 @@ export function useChatActions() {
           : await joinRoom(roomName);
         const conversationId = `room-${room.name}`;
         const history = room.chatData ?? room.chatMess ?? [];
+        const messages = mapHistory(history, conversationId, username);
         const members: RoomMember[] = room.user ?? room.userList ?? [];
         const conversation: Conversation = {
           id: conversationId,
@@ -268,12 +269,12 @@ export function useChatActions() {
           avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(room.name)}`,
           type: "group",
           lastMessage:
-            history.at(-1)?.mes ??
+            messages.at(-1)?.content ??
             (isCreating
               ? "Nhóm chat vừa được tạo. Hãy gửi lời chào!"
               : "Bạn đã tham gia nhóm chat."),
-          lastMessageTime: history.at(-1)
-            ? formatChatTime(history.at(-1)?.createAt)
+          lastMessageTime: messages.at(-1)
+            ? messages.at(-1)?.createdAt
             : formatChatTime(),
           unreadCount: 0,
         };
@@ -282,7 +283,7 @@ export function useChatActions() {
         dispatch(
           historyLoaded({
             conversationId,
-            messages: mapHistory(history, conversationId, username),
+            messages,
             page: 1,
             hasMore: history.length >= 0,
             roomMembers: members,
