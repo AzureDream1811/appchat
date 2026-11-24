@@ -22,6 +22,12 @@ class SocketService {
   private listeners = new Set<SocketListener>();
   private connecting: Promise<void> | null = null;
   private pendingRequests = new Set<PendingRequest>();
+  private authenticated = false;
+  private reloginPromise: Promise<void> | null = null;
+
+  isAuthenticated(): boolean {
+    return this.authenticated && this.ws?.readyState === WebSocket.OPEN;
+  }
 
   connect(): Promise<void> {
     if (this.ws?.readyState === WebSocket.OPEN) {
@@ -59,6 +65,17 @@ class SocketService {
           listener(response);
         }
 
+        if (response.event === "AUTH" && response.status === "error") {
+          this.authenticated = false;
+          const error = new Error(response.mes || "Authentication failed.");
+          for (const pending of this.pendingRequests) {
+            window.clearTimeout(pending.timeoutId);
+            pending.reject(error);
+          }
+          this.pendingRequests.clear();
+          return;
+        }
+
         const request = [...this.pendingRequests].find(
           (pending) => pending.event === response.event,
         );
@@ -70,6 +87,11 @@ class SocketService {
           if (response.status === "error") {
             request.reject(new Error(response.mes || "Request failed."));
           } else {
+            if (response.event === "LOGIN" || response.event === "RE_LOGIN") {
+              this.authenticated = true;
+            } else if (response.event === "LOGOUT") {
+              this.authenticated = false;
+            }
             request.resolve(response.data);
           }
         }
@@ -80,6 +102,7 @@ class SocketService {
 
         this.ws = null;
         this.connecting = null;
+        this.authenticated = false;
 
         for (const request of this.pendingRequests) {
           window.clearTimeout(request.timeoutId);
@@ -93,6 +116,7 @@ class SocketService {
   }
 
   async send<T>(event: ChatEvent, data?: T): Promise<boolean> {
+    await this.ensureAuthenticated(event);
     await this.connect();
 
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
@@ -109,6 +133,7 @@ class SocketService {
   }
 
   async request<T>(event: ChatEvent, data?: unknown): Promise<T> {
+    await this.ensureAuthenticated(event);
     await this.connect();
 
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
@@ -147,6 +172,37 @@ class SocketService {
     this.ws?.close();
     this.ws = null;
     this.connecting = null;
+    this.authenticated = false;
+  }
+
+  private async ensureAuthenticated(event: ChatEvent): Promise<void> {
+    if (
+      event === "REGISTER" ||
+      event === "LOGIN" ||
+      event === "RE_LOGIN" ||
+      event === "LOGOUT" ||
+      this.isAuthenticated()
+    ) {
+      return;
+    }
+
+    if (this.reloginPromise) {
+      return this.reloginPromise;
+    }
+
+    const user = localStorage.getItem("user");
+    const code = localStorage.getItem("reLoginCode");
+    if (!user || !code) {
+      throw new Error("You must log in before continuing.");
+    }
+
+    this.reloginPromise = this.request("RE_LOGIN", { user, code })
+      .then(() => undefined)
+      .finally(() => {
+        this.reloginPromise = null;
+      });
+
+    return this.reloginPromise;
   }
 }
 

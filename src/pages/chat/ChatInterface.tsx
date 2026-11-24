@@ -28,9 +28,12 @@ export default function ChatInterface() {
   const {
     currentMessages,
     roomMembers,
+    hasMoreMessages,
+    isLoadingMore,
     setRoomHistory,
     ensureDirectConversation,
     selectConversation,
+    loadMoreMessages,
     sendMessage,
     removeConversation: removeMessageConversation,
   } = useChatMessages(myName, selectedId, selectedConversation);
@@ -148,6 +151,9 @@ export default function ChatInterface() {
           onLeaveRoom={handleLeaveRoom}
           isLeavingRoom={isLeavingRoom}
           canLeaveRoom={true}
+          onLoadMore={loadMoreMessages}
+          hasMore={hasMoreMessages}
+          isLoadingMore={isLoadingMore}
         />
       ) : (
         <EmptyChat />
